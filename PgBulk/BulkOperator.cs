@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text;
 using Npgsql;
 using PgBulk.Abstractions;
@@ -22,6 +22,14 @@ public class BulkOperator
 
     private string? ConnectionString { get; }
 
+    public virtual void LogBeforeCommand(NpgsqlCommand npgsqlCommand)
+    {
+    }
+
+    public virtual void LogAfterCommand(NpgsqlCommand npgsqlCommand, TimeSpan elapsed)
+    {
+    }
+
     public virtual async Task<NpgsqlConnection> CreateOpenedConnection()
     {
         var connection = new NpgsqlConnection(ConnectionString);
@@ -41,54 +49,78 @@ public class BulkOperator
 
         await InsertToTemporaryTableAsync(connection, entities, tableInformation, temporaryName);
 
-        var primaryKeyColumns = tableInformation.Columns.Where(i => i.PrimaryKey).Select(i => $"\"{i.Name}\"")
+        var primaryKeyColumns = tableInformation.Columns
+            .Where(i => i.PrimaryKey)
+            .Select(i => $"\"{i.Name}\"")
+            .DefaultIfEmpty()
             .Aggregate((x, y) => $"{x},{y}");
 
-        var setStatement = tableInformation.Columns.Where(i => !i.PrimaryKey)
+        if (string.IsNullOrEmpty(primaryKeyColumns))
+            throw new InvalidOperationException($"No primary keys defined for table \"{tableInformation.Name}\"");
+
+        var setStatement = tableInformation.Columns
+            .Where(i => !i.PrimaryKey)
             .Select(i => $"\"{i.Name}\" = EXCLUDED.\"{i.Name}\"")
+            .DefaultIfEmpty()
             .Aggregate((x, y) => $"{x}, {y}");
 
-        await using var npgsqlCommand = connection.CreateCommand();
-        npgsqlCommand.CommandText = $"insert into \"{tableInformation.Name}\" (select * from \"{temporaryName}\") ON CONFLICT ({primaryKeyColumns}) DO UPDATE SET {setStatement}";
-        await npgsqlCommand.ExecuteNonQueryAsync();
+
+        if (!string.IsNullOrEmpty(setStatement))
+            await ExecuteCommand(connection, $"insert into \"{tableInformation.Name}\" (select * from \"{temporaryName}\") ON CONFLICT ({(string)primaryKeyColumns}) DO UPDATE SET {setStatement}");
+        else
+            await ExecuteCommand(connection, $"insert into \"{tableInformation.Name}\" (select * from \"{temporaryName}\") ON CONFLICT DO NOTHING");
     }
 
-    public async Task SyncAsync<T>(IEnumerable<T> entities)
+    private async Task ExecuteCommand(NpgsqlConnection connection, string script)
     {
-        await SyncAsync(await CreateOpenedConnection(), entities);
+        await using var npgsqlCommand = connection.CreateCommand();
+        npgsqlCommand.CommandText = script;
+
+        LogBeforeCommand(npgsqlCommand);
+        var stopWatch = Stopwatch.StartNew();
+        await npgsqlCommand.ExecuteNonQueryAsync();
+
+        stopWatch.Start();
+        LogAfterCommand(npgsqlCommand, stopWatch.Elapsed);
     }
 
-    public virtual async Task SyncAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities)
+    public async Task SyncAsync<T>(IEnumerable<T> entities, string? deleteWhere = null)
+    {
+        await SyncAsync(await CreateOpenedConnection(), entities, deleteWhere);
+    }
+
+    public virtual async Task SyncAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, string? deleteWhere)
     {
         var tableInformation = await TableInformationProvider.GetTableInformation(typeof(T));
         var temporaryName = GetTemporaryTableName(tableInformation);
 
         await InsertToTemporaryTableAsync(connection, entities, tableInformation, temporaryName);
 
-        await using var transação = await connection.BeginTransactionAsync();
-        await using var deleteCommand = connection.CreateCommand();
-        deleteCommand.CommandText = $"delete from \"{tableInformation.Name}\"";
-        await deleteCommand.ExecuteNonQueryAsync();
+        await using var transaction = await connection.BeginTransactionAsync();
 
-        await using var npgsqlCommand = connection.CreateCommand();
-        npgsqlCommand.CommandText = $"insert into \"{tableInformation.Name}\" (select * from \"{temporaryName}\")";
-        await npgsqlCommand.ExecuteNonQueryAsync();
+        var deleteScriptBuilder = new StringBuilder($"delete from \"{tableInformation.Name}\"");
 
-        await transação.CommitAsync(CancellationToken.None);
+        if (!string.IsNullOrEmpty(deleteWhere))
+        {
+            deleteScriptBuilder.AppendLine("WHERE");
+            deleteScriptBuilder.AppendLine(deleteWhere);
+        }
+
+        await ExecuteCommand(connection, deleteScriptBuilder.ToString());
+        await ExecuteCommand(connection, $"insert into \"{tableInformation.Name}\" (select * from \"{temporaryName}\")");
+        await transaction.CommitAsync(CancellationToken.None);
     }
 
     public virtual string GetTemporaryTableName(ITableInformation tableColumnInformation)
     {
         var newGuid = Guid.NewGuid();
         var s = newGuid.ToString().Replace("-", string.Empty)[..10];
-        return $"{tableColumnInformation.Columns}_temp_{s}";
+        return $"{tableColumnInformation.Name}_temp_{s}";
     }
 
-    protected static async Task<ulong> InsertToTemporaryTableAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, ITableInformation tableInformation, string temporaryTableName)
+    protected async Task<ulong> InsertToTemporaryTableAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, ITableInformation tableInformation, string temporaryTableName)
     {
-        await using var npgsqlCommand = connection.CreateCommand();
-        npgsqlCommand.CommandText = $"CREATE TABLE \"{temporaryTableName}\" AS TABLE \"{tableInformation.Name}\" WITH NO DATA;";
-        await npgsqlCommand.ExecuteNonQueryAsync();
+        await ExecuteCommand(connection, $"CREATE TEMPORARY TABLE \"{temporaryTableName}\" AS TABLE \"{tableInformation.Name}\" WITH NO DATA;");
 
         var columns = tableInformation.Columns
             .Select(i => $"\"{i.Name}\"")

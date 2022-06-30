@@ -9,14 +9,23 @@ public class BulkEfOperator : BulkOperator
 {
     private ILogger<BulkEfOperator> Logger { get; }
 
-    public BulkEfOperator(DbContext dbContext) : base(dbContext.Database.GetConnectionString()!, new EntityTableInformationProvider(dbContext))
+    public BulkEfOperator(DbContext dbContext, int? timeoutOverride) : base(OverrideCommandTimeout(dbContext.Database.GetConnectionString(), timeoutOverride), new EntityTableInformationProvider(dbContext))
     {
         Logger = dbContext.GetService<ILogger<BulkEfOperator>>();
     }
 
+    private static string OverrideCommandTimeout(string? originalConnectionString, int? timeoutOverride)
+    {
+        var newConnectionString = new NpgsqlConnectionStringBuilder(originalConnectionString);
+
+        if (timeoutOverride.HasValue) newConnectionString.CommandTimeout = timeoutOverride.Value;
+
+        return newConnectionString.ToString();
+    }
+
     public override void LogBeforeCommand(NpgsqlCommand npgsqlCommand)
     {
-       Logger.LogInformation("Executing command {@Command}", npgsqlCommand.CommandText);
+        Logger.LogInformation("Executing command {@Command}", npgsqlCommand.CommandText);
     }
 
     public override void LogAfterCommand(NpgsqlCommand npgsqlCommand, TimeSpan elapsed)

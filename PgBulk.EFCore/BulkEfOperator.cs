@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
@@ -7,11 +8,12 @@ namespace PgBulk.EFCore;
 
 public class BulkEfOperator : BulkOperator
 {
-    private ILogger<BulkEfOperator> Logger { get; }
+    private ILogger<BulkEfOperator>? Logger { get; }
 
     public BulkEfOperator(DbContext dbContext, int? timeoutOverride) : base(OverrideCommandTimeout(dbContext.Database.GetConnectionString(), timeoutOverride), new EntityTableInformationProvider(dbContext))
     {
-        Logger = dbContext.GetService<ILogger<BulkEfOperator>>();
+        var serviceProvider = dbContext.GetInfrastructure();
+        Logger = serviceProvider.GetService<ILogger<BulkEfOperator>>();
     }
 
     private static string OverrideCommandTimeout(string? originalConnectionString, int? timeoutOverride)
@@ -25,11 +27,11 @@ public class BulkEfOperator : BulkOperator
 
     public override void LogBeforeCommand(NpgsqlCommand npgsqlCommand)
     {
-        Logger.LogInformation("Executing command {@Command}", npgsqlCommand.CommandText);
+        Logger?.LogInformation("Executing command {@Command}", npgsqlCommand.CommandText);
     }
 
     public override void LogAfterCommand(NpgsqlCommand npgsqlCommand, TimeSpan elapsed)
     {
-        Logger.LogInformation("Executed DbCommand ({ElapsedMilliseconds}ms) {@Command}", elapsed.TotalMilliseconds, npgsqlCommand.CommandText);
+        Logger?.LogInformation("Executed DbCommand ({ElapsedMilliseconds}ms) {@Command}", elapsed.TotalMilliseconds, npgsqlCommand.CommandText);
     }
 }

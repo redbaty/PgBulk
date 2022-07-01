@@ -15,4 +15,10 @@ public static class ContextExtensions
         var @operator = new BulkEfOperator(dbContext, timeoutOverride);
         return @operator.MergeAsync(entities);
     }
+    
+    public static Task BulkInsertAsync<T>(this DbContext dbContext, IEnumerable<T> entities, int? timeoutOverride = 600) where T : class
+    {
+        var @operator = new BulkEfOperator(dbContext, timeoutOverride);
+        return @operator.InsertAsync(entities);
+    }
 }

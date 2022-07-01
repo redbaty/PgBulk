@@ -24,7 +24,7 @@ public class EFCoreTests
     public async Task Insert(int value)
     {
         await using var myContext = CreateContext();
-        await myContext.BulkMergeAsync(Faker.Generate(value));
+        await myContext.BulkInsertAsync(Faker.Generate(value));
 
         var currentCount = await myContext.TestRows.CountAsync();
         Assert.AreEqual(value, currentCount);

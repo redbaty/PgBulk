@@ -15,6 +15,7 @@ public class BulkEfOperator : BulkOperator
     public BulkEfOperator(DbContext dbContext, int? timeoutOverride) : base(OverrideCommandTimeout(dbContext.Database.GetConnectionString(), timeoutOverride), new EntityTableInformationProvider(dbContext))
     {
         DbContext = dbContext;
+        DisposeConnection = false;
         
         var serviceProvider = dbContext.GetInfrastructure();
         Logger = serviceProvider.GetService<ILogger<BulkEfOperator>>();

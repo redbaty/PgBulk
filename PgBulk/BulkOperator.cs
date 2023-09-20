@@ -20,6 +20,8 @@ public class BulkOperator
 
     protected ITableInformationProvider TableInformationProvider { get; }
 
+    protected bool DisposeConnection { get; set; } = true;
+
     private string? ConnectionString { get; }
 
     public virtual void LogBeforeCommand(NpgsqlCommand npgsqlCommand)
@@ -39,14 +41,32 @@ public class BulkOperator
 
     public async Task MergeAsync<T>(IEnumerable<T> entities)
     {
-        await using var connection = await CreateOpenedConnection();
-        await MergeAsync(connection, entities);
+        var connection = await CreateOpenedConnection();
+        
+        try
+        {
+            await MergeAsync(connection, entities);
+        }
+        finally
+        {
+            if (DisposeConnection)
+                await connection.DisposeAsync();
+        }
     }
 
     public async Task InsertAsync<T>(IEnumerable<T> entities)
     {
-        await using var connection = await CreateOpenedConnection();
-        await InsertToTableAsync(connection, entities);
+        var connection = await CreateOpenedConnection();
+
+        try
+        {
+            await InsertToTableAsync(connection, entities);
+        }
+        finally
+        {
+            if (DisposeConnection)
+                await connection.DisposeAsync();
+        }
     }
 
     private async Task<ulong> InsertToTableAsync<T>(NpgsqlConnection npgsqlConnection, IEnumerable<T> entities)
@@ -62,7 +82,7 @@ public class BulkOperator
 
         await ExecuteCommand(connection, $"CREATE TEMPORARY TABLE \"{temporaryName}\" AS TABLE \"{tableInformation.Name}\" WITH NO DATA;");
         await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
-        
+
         if (runAfterTemporaryTableInsert != null)
         {
             await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
@@ -105,8 +125,17 @@ public class BulkOperator
 
     public async Task SyncAsync<T>(IEnumerable<T> entities, string? deleteWhere = null, Func<string, string, Task>? runAfterTemporaryTableInsert = null)
     {
-        await using var connection = await CreateOpenedConnection();
-        await SyncAsync(connection, entities, deleteWhere, runAfterTemporaryTableInsert);
+        var connection = await CreateOpenedConnection();
+        
+        try
+        {
+            await SyncAsync(connection, entities, deleteWhere, runAfterTemporaryTableInsert);
+        }
+        finally
+        {
+            if (DisposeConnection)
+                await connection.DisposeAsync();
+        }
     }
 
     public virtual async Task SyncAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, string? deleteWhere, Func<string, string, Task>? runAfterTemporaryTableInsert = null)
@@ -116,7 +145,7 @@ public class BulkOperator
 
         await ExecuteCommand(connection, $"CREATE TEMPORARY TABLE \"{temporaryName}\" AS TABLE \"{tableInformation.Name}\" WITH NO DATA;");
         await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
-        
+
         if (runAfterTemporaryTableInsert != null)
         {
             await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);

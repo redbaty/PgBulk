@@ -9,9 +9,13 @@ namespace PgBulk.EFCore;
 public class BulkEfOperator : BulkOperator
 {
     private ILogger<BulkEfOperator>? Logger { get; }
+    
+    private DbContext DbContext { get; }
 
     public BulkEfOperator(DbContext dbContext, int? timeoutOverride) : base(OverrideCommandTimeout(dbContext.Database.GetConnectionString(), timeoutOverride), new EntityTableInformationProvider(dbContext))
     {
+        DbContext = dbContext;
+        
         var serviceProvider = dbContext.GetInfrastructure();
         Logger = serviceProvider.GetService<ILogger<BulkEfOperator>>();
     }
@@ -23,6 +27,13 @@ public class BulkEfOperator : BulkOperator
         if (timeoutOverride.HasValue) newConnectionString.CommandTimeout = timeoutOverride.Value;
 
         return newConnectionString.ToString();
+    }
+
+    public override Task<NpgsqlConnection> CreateOpenedConnection()
+    {
+        return DbContext.Database.GetDbConnection() is NpgsqlConnection npgsqlConnection
+            ? Task.FromResult(npgsqlConnection)
+            : throw new InvalidOperationException("Connection is not NpgsqlConnection");
     }
 
     public override void LogBeforeCommand(NpgsqlCommand npgsqlCommand)

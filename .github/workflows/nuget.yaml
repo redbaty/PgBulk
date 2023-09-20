@@ -1,0 +1,31 @@
+name: Publish NuGet packages
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.0.x'
+
+    - name: Restore NuGet packages
+      run: dotnet restore
+
+    - name: Build and pack NuGet packages
+      run: |
+        dotnet build --configuration Release
+        dotnet pack --configuration Release --include-symbols --include-source --output ./nupkgs
+
+    - name: Publish NuGet packages
+      run: |
+        dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate

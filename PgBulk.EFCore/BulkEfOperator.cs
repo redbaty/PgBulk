@@ -8,18 +8,18 @@ namespace PgBulk.EFCore;
 
 public class BulkEfOperator : BulkOperator
 {
-    private ILogger<BulkEfOperator>? Logger { get; }
-    
-    private DbContext DbContext { get; }
-
     public BulkEfOperator(DbContext dbContext, int? timeoutOverride) : base(OverrideCommandTimeout(dbContext.Database.GetConnectionString(), timeoutOverride), new EntityTableInformationProvider(dbContext))
     {
         DbContext = dbContext;
         DisposeConnection = false;
-        
+
         var serviceProvider = dbContext.GetInfrastructure();
         Logger = serviceProvider.GetService<ILogger<BulkEfOperator>>();
     }
+
+    private ILogger<BulkEfOperator>? Logger { get; }
+
+    private DbContext DbContext { get; }
 
     private static string OverrideCommandTimeout(string? originalConnectionString, int? timeoutOverride)
     {

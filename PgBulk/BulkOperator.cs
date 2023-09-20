@@ -42,7 +42,7 @@ public class BulkOperator
     public async Task MergeAsync<T>(IEnumerable<T> entities)
     {
         var connection = await CreateOpenedConnection();
-        
+
         try
         {
             await MergeAsync(connection, entities);
@@ -83,10 +83,7 @@ public class BulkOperator
         await ExecuteCommand(connection, $"CREATE TEMPORARY TABLE \"{temporaryName}\" AS TABLE \"{tableInformation.Name}\" WITH NO DATA;");
         await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
 
-        if (runAfterTemporaryTableInsert != null)
-        {
-            await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
-        }
+        if (runAfterTemporaryTableInsert != null) await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
 
         var primaryKeyColumns = tableInformation.Columns
             .Where(i => i is { PrimaryKey: true, ValueGeneratedOnAdd: false })
@@ -126,7 +123,7 @@ public class BulkOperator
     public async Task SyncAsync<T>(IEnumerable<T> entities, string? deleteWhere = null, Func<string, string, Task>? runAfterTemporaryTableInsert = null)
     {
         var connection = await CreateOpenedConnection();
-        
+
         try
         {
             await SyncAsync(connection, entities, deleteWhere, runAfterTemporaryTableInsert);
@@ -146,10 +143,7 @@ public class BulkOperator
         await ExecuteCommand(connection, $"CREATE TEMPORARY TABLE \"{temporaryName}\" AS TABLE \"{tableInformation.Name}\" WITH NO DATA;");
         await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
 
-        if (runAfterTemporaryTableInsert != null)
-        {
-            await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
-        }
+        if (runAfterTemporaryTableInsert != null) await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
 
         await using var transaction = await connection.BeginTransactionAsync();
 

@@ -10,10 +10,7 @@ public sealed class ManualBulkOperator : BulkOperator
 
     public async Task VerifyPrimaryKeys()
     {
-        if (TableInformationProvider is not ManualTableInformationProvider manualTableInformationProvider)
-        {
-            throw new InvalidOperationException("Table information provider is not of manual type");
-        }
+        if (TableInformationProvider is not ManualTableInformationProvider manualTableInformationProvider) throw new InvalidOperationException("Table information provider is not of manual type");
 
         foreach (var manualTableInformation in manualTableInformationProvider.TableColumnInformations.Values)
         {
@@ -28,15 +25,9 @@ public sealed class ManualBulkOperator : BulkOperator
             var reader = await command.ExecuteReaderAsync();
             var primaryKeys = new HashSet<string>();
 
-            while (await reader.ReadAsync())
-            {
-                primaryKeys.Add(reader.GetString(0));
-            }
+            while (await reader.ReadAsync()) primaryKeys.Add(reader.GetString(0));
 
-            foreach (var tableColumnInformation in manualTableInformation.Columns.OfType<ManualTableColumnMapping>())
-            {
-                tableColumnInformation.PrimaryKey = primaryKeys.Contains(tableColumnInformation.Name);
-            }
+            foreach (var tableColumnInformation in manualTableInformation.Columns.OfType<ManualTableColumnMapping>()) tableColumnInformation.PrimaryKey = primaryKeys.Contains(tableColumnInformation.Name);
         }
     }
 }

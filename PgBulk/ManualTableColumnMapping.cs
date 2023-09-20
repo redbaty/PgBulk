@@ -14,11 +14,11 @@ public record ManualTableColumnMapping : ITableColumnInformation
     }
 
     internal PropertyInfo? Property { get; }
-    
+
     public string Name { get; }
 
     public bool PrimaryKey { get; internal set; }
-    
+
     public bool ValueGeneratedOnAdd { get; }
 
     public object? GetValue(object? entity)

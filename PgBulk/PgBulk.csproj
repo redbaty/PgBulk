@@ -10,19 +10,19 @@
     </PropertyGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
-        <PackageReference Include="Npgsql" Version="6.*" />
+        <PackageReference Include="Npgsql" Version="6.*"/>
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'net5.0'">
-        <PackageReference Include="Npgsql" Version="5.*" />
+        <PackageReference Include="Npgsql" Version="5.*"/>
     </ItemGroup>
-    
+
     <ItemGroup>
         <PackageReference Include="Nanoid" Version="2.1.0"/>
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\PgBulk.Abstractions\PgBulk.Abstractions.csproj" />
+        <ProjectReference Include="..\PgBulk.Abstractions\PgBulk.Abstractions.csproj"/>
     </ItemGroup>
 
 </Project>

@@ -17,7 +17,7 @@ public class EntityColumnInformation : ITableColumnInformation
     public string Name { get; }
 
     public bool PrimaryKey { get; }
-    
+
     public bool ValueGeneratedOnAdd { get; }
 
     public object? GetValue(object? entity)

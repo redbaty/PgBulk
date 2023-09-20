@@ -5,17 +5,20 @@ namespace PgBulk.EFCore;
 
 public class EntityColumnInformation : ITableColumnInformation
 {
-    public EntityColumnInformation(string name, bool primaryKey, PropertyInfo? property)
+    public EntityColumnInformation(string name, bool primaryKey, bool valueGeneratedOnAdd, PropertyInfo? property)
     {
         Name = name;
         PrimaryKey = primaryKey;
         Property = property;
+        ValueGeneratedOnAdd = valueGeneratedOnAdd;
     }
 
     private PropertyInfo? Property { get; }
     public string Name { get; }
 
     public bool PrimaryKey { get; }
+    
+    public bool ValueGeneratedOnAdd { get; }
 
     public object? GetValue(object? entity)
     {

@@ -69,7 +69,7 @@ public class BulkOperator
         }
 
         var primaryKeyColumns = tableInformation.Columns
-            .Where(i => i.PrimaryKey)
+            .Where(i => i is { PrimaryKey: true, ValueGeneratedOnAdd: false })
             .Select(i => $"\"{i.Name}\"")
             .DefaultIfEmpty()
             .Aggregate((x, y) => $"{x},{y}");
@@ -145,6 +145,7 @@ public class BulkOperator
     private async Task<ulong> InsertToTableAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, ITableInformation tableInformation, string tableName)
     {
         var columns = tableInformation.Columns
+            .Where(i => !i.ValueGeneratedOnAdd)
             .Select(i => $"\"{i.Name}\"")
             .Aggregate((x, y) => $"{x}, {y}");
 #if NET5_0
@@ -159,7 +160,9 @@ public class BulkOperator
         {
             await npgsqlBinaryImporter.StartRowAsync();
 
-            foreach (var columnValue in tableInformation.Columns.Select(i => i.GetValue(entity))) await npgsqlBinaryImporter.WriteAsync(columnValue);
+            foreach (var columnValue in tableInformation.Columns
+                         .Where(i => !i.ValueGeneratedOnAdd)
+                         .Select(i => i.GetValue(entity))) await npgsqlBinaryImporter.WriteAsync(columnValue);
 
             inserted++;
         }

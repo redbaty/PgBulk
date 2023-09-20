@@ -16,9 +16,9 @@ public class ManualTableColumnInformationBuilder<T>
 
     public ManualTableColumnInformationBuilder<T> Automap()
     {
-        foreach (var propertyInfo in typeof(T).GetProperties().Where(i => i.CanRead && i.CanWrite))
+        foreach (var propertyInfo in typeof(T).GetProperties().Where(i => i is { CanRead: true, CanWrite: true }))
         {
-            ColumnMappings.Add(new ManualTableColumnMapping(propertyInfo.Name, propertyInfo));
+            ColumnMappings.Add(new ManualTableColumnMapping(propertyInfo.Name, propertyInfo, false));
         }
 
         return this;

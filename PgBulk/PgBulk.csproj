@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
         <PackageProjectUrl>https://github.com/redbaty/PgBulk</PackageProjectUrl>
+        <PackageVersion>1.1.0</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">

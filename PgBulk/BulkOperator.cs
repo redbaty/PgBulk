@@ -55,13 +55,18 @@ public class BulkOperator
         return await InsertToTableAsync(npgsqlConnection, entities, tableInformation, tableInformation.Name);
     }
 
-    public virtual async Task MergeAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities)
+    public virtual async Task MergeAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, Func<string, string, Task>? runAfterTemporaryTableInsert = null)
     {
         var tableInformation = await TableInformationProvider.GetTableInformation(typeof(T));
         var temporaryName = GetTemporaryTableName(tableInformation);
 
         await ExecuteCommand(connection, $"CREATE TEMPORARY TABLE \"{temporaryName}\" AS TABLE \"{tableInformation.Name}\" WITH NO DATA;");
         await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
+        
+        if (runAfterTemporaryTableInsert != null)
+        {
+            await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
+        }
 
         var primaryKeyColumns = tableInformation.Columns
             .Where(i => i.PrimaryKey)
@@ -98,19 +103,24 @@ public class BulkOperator
         LogAfterCommand(npgsqlCommand, stopWatch.Elapsed);
     }
 
-    public async Task SyncAsync<T>(IEnumerable<T> entities, string? deleteWhere = null)
+    public async Task SyncAsync<T>(IEnumerable<T> entities, string? deleteWhere = null, Func<string, string, Task>? runAfterTemporaryTableInsert = null)
     {
         await using var connection = await CreateOpenedConnection();
-        await SyncAsync(connection, entities, deleteWhere);
+        await SyncAsync(connection, entities, deleteWhere, runAfterTemporaryTableInsert);
     }
 
-    public virtual async Task SyncAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, string? deleteWhere)
+    public virtual async Task SyncAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, string? deleteWhere, Func<string, string, Task>? runAfterTemporaryTableInsert = null)
     {
         var tableInformation = await TableInformationProvider.GetTableInformation(typeof(T));
         var temporaryName = GetTemporaryTableName(tableInformation);
 
         await ExecuteCommand(connection, $"CREATE TEMPORARY TABLE \"{temporaryName}\" AS TABLE \"{tableInformation.Name}\" WITH NO DATA;");
         await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
+        
+        if (runAfterTemporaryTableInsert != null)
+        {
+            await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
+        }
 
         await using var transaction = await connection.BeginTransactionAsync();
 

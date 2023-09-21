@@ -170,14 +170,14 @@ public class BulkOperator
         var tableInformation = await TableInformationProvider.GetTableInformation(typeof(T));
         return await CreateBinaryImporterAsync<T>(connection, tableInformation, tableInformation.Name);
     }
-    
+
     public async Task<NpgsqlBinaryImporter<T>> CreateBinaryImporterAsync<T>(NpgsqlConnection connection, ITableInformation tableInformation, string tableName)
     {
         var columns = tableInformation.Columns
             .Where(i => !i.ValueGeneratedOnAdd)
             .Select(i => $"\"{i.Name}\"")
             .Aggregate((x, y) => $"{x}, {y}");
-        
+
 #if NET5_0
         return await Task.FromResult(new NpgsqlBinaryImporter<T>(connection.BeginBinaryImport($"COPY \"{tableName}\" ({columns}) FROM STDIN (FORMAT BINARY)"), tableInformation));
 #else

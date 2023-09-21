@@ -1,6 +1,5 @@
 using Bogus;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using PgBulk.EFCore;
 
 namespace PgBulk.Tests;
@@ -12,12 +11,12 @@ public class EFCoreTests
         .RuleFor(i => i.Value1, f => f.Address.City())
         .RuleFor(i => i.Value2, f => f.Company.CompanyName())
         .RuleFor(i => i.Value3, f => f.PickRandom(null, f.Name.Suffix()));
-    
+
     private static MyContext CreateContext()
     {
         return EntityHelper.CreateContext(Nanoid.Nanoid.Generate(size: 8));
     }
-    
+
     [TestMethod]
     [DataRow(100)]
     [DataRow(1000)]

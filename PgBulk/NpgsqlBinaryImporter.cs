@@ -13,26 +13,14 @@ public sealed class NpgsqlBinaryImporter<T> : IDisposable, IAsyncDisposable
     }
 
     private NpgsqlBinaryImporter BinaryImporter { get; }
-    
+
     private ITableInformation TableInformation { get; }
-    
+
     private ICollection<ITableColumnInformation> WritableColumns { get; }
 
-    public async Task<ulong> WriteToBinaryImporter(IEnumerable<T> entities)
+    public async ValueTask DisposeAsync()
     {
-        ulong inserted = 0;
-        
-        foreach (var entity in entities)
-        {
-            await BinaryImporter.StartRowAsync();
-            
-            foreach (var columnValue in WritableColumns.Select(i => i.GetValue(entity))) 
-                await BinaryImporter.WriteAsync(columnValue);
-            
-            inserted++;
-        }
-
-        return inserted;
+        await BinaryImporter.DisposeAsync();
     }
 
     public void Dispose()
@@ -40,9 +28,21 @@ public sealed class NpgsqlBinaryImporter<T> : IDisposable, IAsyncDisposable
         BinaryImporter.Dispose();
     }
 
-    public async ValueTask DisposeAsync()
+    public async Task<ulong> WriteToBinaryImporter(IEnumerable<T> entities)
     {
-        await BinaryImporter.DisposeAsync();
+        ulong inserted = 0;
+
+        foreach (var entity in entities)
+        {
+            await BinaryImporter.StartRowAsync();
+
+            foreach (var columnValue in WritableColumns.Select(i => i.GetValue(entity)))
+                await BinaryImporter.WriteAsync(columnValue);
+
+            inserted++;
+        }
+
+        return inserted;
     }
 
     public ValueTask<ulong> CompleteAsync()

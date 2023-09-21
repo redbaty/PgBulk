@@ -7,12 +7,12 @@ namespace PgBulk.Tests;
 public class ManualMappingTests
 {
     private ManualTableInformationProvider? ManualTableInformationProvider { get; set; }
-    
+
     private static Faker<TestRow> Faker => new Faker<TestRow>().RuleFor(i => i.Id, f => f.IndexFaker)
         .RuleFor(i => i.Value1, f => f.Address.City())
         .RuleFor(i => i.Value2, f => f.Company.CompanyName())
         .RuleFor(i => i.Value3, f => f.PickRandom(null, f.Name.Suffix()));
-    
+
     [TestInitialize]
     public void Setup()
     {
@@ -28,7 +28,7 @@ public class ManualMappingTests
 
         return new Tuple<ManualBulkOperator, MyContext>(bulkOperator, myContext);
     }
-    
+
     [TestMethod]
     [DataRow(100)]
     [DataRow(1000)]

@@ -32,7 +32,7 @@ public class BulkOperator
     {
     }
 
-    public virtual async Task<NpgsqlConnection> CreateOpenedConnection()
+    protected virtual async Task<NpgsqlConnection> CreateOpenedConnection()
     {
         var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();
@@ -165,31 +165,31 @@ public class BulkOperator
         return $"{tableColumnInformation.Name}_temp_{Nanoid.Nanoid.Generate(size: 10)}";
     }
 
-    private async Task<ulong> InsertToTableAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, ITableInformation tableInformation, string tableName)
+    public async Task<NpgsqlBinaryImporter<T>> CreateBinaryImporterAsync<T>(NpgsqlConnection connection)
+    {
+        var tableInformation = await TableInformationProvider.GetTableInformation(typeof(T));
+        return await CreateBinaryImporterAsync<T>(connection, tableInformation, tableInformation.Name);
+    }
+    
+    public async Task<NpgsqlBinaryImporter<T>> CreateBinaryImporterAsync<T>(NpgsqlConnection connection, ITableInformation tableInformation, string tableName)
     {
         var columns = tableInformation.Columns
             .Where(i => !i.ValueGeneratedOnAdd)
             .Select(i => $"\"{i.Name}\"")
             .Aggregate((x, y) => $"{x}, {y}");
+        
 #if NET5_0
-        await using var npgsqlBinaryImporter = connection.BeginBinaryImport($"COPY \"{tableName}\" ({columns}) FROM STDIN (FORMAT BINARY)");
+        return await Task.FromResult(new NpgsqlBinaryImporter<T>(connection.BeginBinaryImport($"COPY \"{tableName}\" ({columns}) FROM STDIN (FORMAT BINARY)"), tableInformation));
 #else
-        await using var npgsqlBinaryImporter = await connection.BeginBinaryImportAsync($"COPY \"{tableName}\" ({columns}) FROM STDIN (FORMAT BINARY)");
+        return new NpgsqlBinaryImporter<T>(await connection.BeginBinaryImportAsync($"COPY \"{tableName}\" ({columns}) FROM STDIN (FORMAT BINARY)"), tableInformation);
 #endif
+    }
 
-        ulong inserted = 0;
+    private async Task<ulong> InsertToTableAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, ITableInformation tableInformation, string tableName)
+    {
+        await using var npgsqlBinaryImporter = await CreateBinaryImporterAsync<T>(connection, tableInformation, tableName);
 
-        foreach (var entity in entities)
-        {
-            await npgsqlBinaryImporter.StartRowAsync();
-
-            foreach (var columnValue in tableInformation.Columns
-                         .Where(i => !i.ValueGeneratedOnAdd)
-                         .Select(i => i.GetValue(entity))) await npgsqlBinaryImporter.WriteAsync(columnValue);
-
-            inserted++;
-        }
-
+        var inserted = await npgsqlBinaryImporter.WriteToBinaryImporter(entities);
         await npgsqlBinaryImporter.CompleteAsync();
         await npgsqlBinaryImporter.DisposeAsync();
         return inserted;

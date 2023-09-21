@@ -30,7 +30,7 @@ public class BulkEfOperator : BulkOperator
         return newConnectionString.ToString();
     }
 
-    public override Task<NpgsqlConnection> CreateOpenedConnection()
+    protected override Task<NpgsqlConnection> CreateOpenedConnection()
     {
         return DbContext.Database.GetDbConnection() is NpgsqlConnection npgsqlConnection
             ? Task.FromResult(npgsqlConnection)

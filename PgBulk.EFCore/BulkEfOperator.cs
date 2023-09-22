@@ -8,10 +8,11 @@ namespace PgBulk.EFCore;
 
 public class BulkEfOperator : BulkOperator
 {
-    public BulkEfOperator(DbContext dbContext, int? timeoutOverride) : base(OverrideCommandTimeout(dbContext.Database.GetConnectionString(), timeoutOverride), new EntityTableInformationProvider(dbContext))
+    public BulkEfOperator(DbContext dbContext, int? timeoutOverride, bool useContextConnection = true) : base(OverrideCommandTimeout(dbContext.Database.GetConnectionString(), timeoutOverride), new EntityTableInformationProvider(dbContext))
     {
         DbContext = dbContext;
         DisposeConnection = false;
+        UseContextConnection = useContextConnection;
 
         var serviceProvider = dbContext.GetInfrastructure();
         Logger = serviceProvider.GetService<ILogger<BulkEfOperator>>();
@@ -20,6 +21,8 @@ public class BulkEfOperator : BulkOperator
     private ILogger<BulkEfOperator>? Logger { get; }
 
     private DbContext DbContext { get; }
+
+    private bool UseContextConnection { get; }
 
     private static string OverrideCommandTimeout(string? originalConnectionString, int? timeoutOverride)
     {
@@ -30,11 +33,13 @@ public class BulkEfOperator : BulkOperator
         return newConnectionString.ToString();
     }
 
-    protected override Task<NpgsqlConnection> CreateOpenedConnection()
+    public override Task<NpgsqlConnection> CreateOpenedConnection()
     {
-        return DbContext.Database.GetDbConnection() is NpgsqlConnection npgsqlConnection
-            ? Task.FromResult(npgsqlConnection)
-            : throw new InvalidOperationException("Connection is not NpgsqlConnection");
+        return !UseContextConnection
+            ? base.CreateOpenedConnection()
+            : DbContext.Database.GetDbConnection() is NpgsqlConnection npgsqlConnection
+                ? Task.FromResult(npgsqlConnection)
+                : throw new InvalidOperationException("Connection is not NpgsqlConnection");
     }
 
     public override void LogBeforeCommand(NpgsqlCommand npgsqlCommand)

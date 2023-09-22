@@ -22,8 +22,8 @@ public static class ContextExtensions
         return @operator.InsertAsync(entities);
     }
 
-    public static BulkEfOperator GetBulkOperator(this DbContext dbContext, int? timeoutOverride = 600)
+    public static BulkEfOperator GetBulkOperator(this DbContext dbContext, int? timeoutOverride = 600, bool useContextConnection = true)
     {
-        return new BulkEfOperator(dbContext, timeoutOverride);
+        return new BulkEfOperator(dbContext, timeoutOverride, useContextConnection);
     }
 }

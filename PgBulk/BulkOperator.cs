@@ -32,7 +32,7 @@ public class BulkOperator
     {
     }
 
-    protected virtual async Task<NpgsqlConnection> CreateOpenedConnection()
+    public virtual async Task<NpgsqlConnection> CreateOpenedConnection()
     {
         var connection = new NpgsqlConnection(ConnectionString);
         await connection.OpenAsync();

@@ -1,3 +1,4 @@
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,13 +34,17 @@ public class BulkEfOperator : BulkOperator
         return newConnectionString.ToString();
     }
 
-    public override Task<NpgsqlConnection> CreateOpenedConnection()
+    public override async Task<NpgsqlConnection> CreateOpenedConnection()
     {
-        return !UseContextConnection
-            ? base.CreateOpenedConnection()
-            : DbContext.Database.GetDbConnection() is NpgsqlConnection npgsqlConnection
-                ? Task.FromResult(npgsqlConnection)
-                : throw new InvalidOperationException("Connection is not NpgsqlConnection");
+        if (!UseContextConnection)
+            return await base.CreateOpenedConnection();
+
+        if (DbContext.Database.GetDbConnection() is not NpgsqlConnection npgsqlConnection) throw new InvalidOperationException("Connection is not NpgsqlConnection");
+        
+        if (npgsqlConnection.State == ConnectionState.Closed)
+            await npgsqlConnection.OpenAsync();
+
+        return npgsqlConnection;
     }
 
     public override void LogBeforeCommand(NpgsqlCommand npgsqlCommand)

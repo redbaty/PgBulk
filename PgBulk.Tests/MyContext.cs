@@ -9,4 +9,12 @@ public class MyContext : DbContext
     }
 
     public DbSet<TestRow> TestRows => Set<TestRow>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<TestRow>(e =>
+        {
+            e.Property(i => i.Id).ValueGeneratedNever();
+        });
+    }
 }

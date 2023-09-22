@@ -9,6 +9,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -25,6 +37,13 @@ jobs:
       run: |
         dotnet build --configuration Release
         dotnet pack --configuration Release --include-symbols --include-source --output ./nupkgs
+
+    - name: Run tests
+      env:
+        T_POSTGRES_HOST: postgres
+        T_POSTGRES_USER: postgres
+        T_POSTGRES_PASS: postgres
+      run: dotnet test -f net6.0
 
     - name: Publish NuGet packages
       run: |

@@ -80,7 +80,7 @@ public class BulkOperator
         var tableInformation = await TableInformationProvider.GetTableInformation(typeof(T));
         var temporaryName = GetTemporaryTableName(tableInformation);
 
-        await ExecuteCommand(connection, $"CREATE TEMPORARY TABLE \"{temporaryName}\" AS TABLE \"{tableInformation.Name}\" WITH NO DATA;");
+        await CreateTemporaryTable(connection, tableInformation, temporaryName);
         await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
 
         if (runAfterTemporaryTableInsert != null) await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
@@ -100,11 +100,20 @@ public class BulkOperator
             .DefaultIfEmpty()
             .Aggregate((x, y) => $"{x}, {y}");
 
+        var baseCommand = new StringBuilder($"insert into \"{tableInformation.Schema}\".\"{tableInformation.Name}\" (select * from \"{temporaryName}\") ON CONFLICT ");
 
         if (!string.IsNullOrEmpty(setStatement))
-            await ExecuteCommand(connection, $"insert into \"{tableInformation.Name}\" (select * from \"{temporaryName}\") ON CONFLICT ({primaryKeyColumns}) DO UPDATE SET {setStatement}");
+            baseCommand.Append($"({primaryKeyColumns}) DO UPDATE SET {setStatement}");
         else
-            await ExecuteCommand(connection, $"insert into \"{tableInformation.Name}\" (select * from \"{temporaryName}\") ON CONFLICT DO NOTHING");
+            baseCommand.Append("DO NOTHING");
+        
+        await ExecuteCommand(connection, baseCommand.ToString());
+    }
+
+    private async Task CreateTemporaryTable(NpgsqlConnection connection, ITableInformation sourceTable, string temporaryName)
+    {
+        var script = $"CREATE TEMPORARY TABLE \"{temporaryName}\" AS TABLE \"{sourceTable.Schema}\".\"{sourceTable.Name}\" WITH NO DATA;";
+        await ExecuteCommand(connection, script);
     }
 
     private async Task ExecuteCommand(NpgsqlConnection connection, string script)
@@ -140,7 +149,7 @@ public class BulkOperator
         var tableInformation = await TableInformationProvider.GetTableInformation(typeof(T));
         var temporaryName = GetTemporaryTableName(tableInformation);
 
-        await ExecuteCommand(connection, $"CREATE TEMPORARY TABLE \"{temporaryName}\" AS TABLE \"{tableInformation.Name}\" WITH NO DATA;");
+        await CreateTemporaryTable(connection, tableInformation, temporaryName);
         await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
 
         if (runAfterTemporaryTableInsert != null) await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
@@ -168,26 +177,49 @@ public class BulkOperator
     public async Task<NpgsqlBinaryImporter<T>> CreateBinaryImporterAsync<T>(NpgsqlConnection connection)
     {
         var tableInformation = await TableInformationProvider.GetTableInformation(typeof(T));
-        return await CreateBinaryImporterAsync<T>(connection, tableInformation, tableInformation.Name);
+        return await CreateBinaryImporterAsync<T>(connection, tableInformation.Columns, tableInformation.Name);
     }
 
-    public async Task<NpgsqlBinaryImporter<T>> CreateBinaryImporterAsync<T>(NpgsqlConnection connection, ITableInformation tableInformation, string tableName)
+    /// <summary>
+    /// Creates a binary importer to a specific type/table.
+    /// </summary>
+    /// <param name="connection"></param>
+    /// <param name="columns"></param>
+    /// <param name="targetTableName">If none is provided, the name from tableInformation will be used instead.</param>
+    /// <param name="targetSchema">If none is provided, the schema from tableInformation will be used instead.</param>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public async Task<NpgsqlBinaryImporter<T>> CreateBinaryImporterAsync<T>(NpgsqlConnection connection, ICollection<ITableColumnInformation> columns, string targetTableName, string? targetSchema = null)
     {
-        var columns = tableInformation.Columns
-            .Where(i => !i.ValueGeneratedOnAdd)
+        var columnsString = columns
             .Select(i => $"\"{i.Name}\"")
             .Aggregate((x, y) => $"{x}, {y}");
+        
+        var commandBuilder = new StringBuilder("COPY ");
 
+        if (!string.IsNullOrEmpty(targetSchema))
+        {
+            commandBuilder.Append($"\"{targetSchema}\".");
+        }
+        
+        commandBuilder.Append($"\"{targetTableName}\" ({columnsString}) FROM STDIN (FORMAT BINARY)");
+        
+        var command = commandBuilder.ToString();
+        
 #if NET5_0
-        return await Task.FromResult(new NpgsqlBinaryImporter<T>(connection.BeginBinaryImport($"COPY \"{tableName}\" ({columns}) FROM STDIN (FORMAT BINARY)"), tableInformation));
+        return await Task.FromResult(new NpgsqlBinaryImporter<T>(connection.BeginBinaryImport(command), columns));
 #else
-        return new NpgsqlBinaryImporter<T>(await connection.BeginBinaryImportAsync($"COPY \"{tableName}\" ({columns}) FROM STDIN (FORMAT BINARY)"), tableInformation);
+        return new NpgsqlBinaryImporter<T>(await connection.BeginBinaryImportAsync(command), columns);
 #endif
     }
 
     private async Task<ulong> InsertToTableAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, ITableInformation tableInformation, string tableName)
     {
-        await using var npgsqlBinaryImporter = await CreateBinaryImporterAsync<T>(connection, tableInformation, tableName);
+        var isValueSet = tableInformation.Columns
+            .Where(i => i is { ValueGeneratedOnAdd: true })
+            .Any(i => entities.Any(o => i.GetValue(o) != default));
+
+        await using var npgsqlBinaryImporter = await CreateBinaryImporterAsync<T>(connection, tableInformation.Columns.Where(i => isValueSet || !i.ValueGeneratedOnAdd).ToList(), tableName);
 
         var inserted = await npgsqlBinaryImporter.WriteToBinaryImporter(entities);
         await npgsqlBinaryImporter.CompleteAsync();

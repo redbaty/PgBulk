@@ -5,18 +5,22 @@ namespace PgBulk;
 
 public class ManualTableColumnInformationBuilder<T>
 {
-    public ManualTableColumnInformationBuilder(string tableName)
+    public ManualTableColumnInformationBuilder(string tableName, string schema = "public")
     {
         TableName = tableName;
+        Schema = schema;
     }
 
     private string TableName { get; }
+    
+    private string Schema { get; }
 
     private HashSet<ManualTableColumnMapping> ColumnMappings { get; } = new();
 
     public ManualTableColumnInformationBuilder<T> Automap()
     {
-        foreach (var propertyInfo in typeof(T).GetProperties().Where(i => i is { CanRead: true, CanWrite: true })) ColumnMappings.Add(new ManualTableColumnMapping(propertyInfo.Name, propertyInfo, false));
+        foreach (var propertyInfo in typeof(T).GetProperties().Where(i => i is { CanRead: true, CanWrite: true })) 
+            ColumnMappings.Add(new ManualTableColumnMapping(propertyInfo.Name, propertyInfo, false));
 
         return this;
     }
@@ -32,6 +36,6 @@ public class ManualTableColumnInformationBuilder<T>
 
     internal void AddToProvider(ManualTableInformationProvider provider)
     {
-        provider.TableColumnInformations.Add(typeof(T), new ManualTableInformation(TableName, ColumnMappings.Cast<ITableColumnInformation>().ToArray()));
+        provider.TableColumnInformations.Add(typeof(T), new ManualTableInformation(Schema, TableName, ColumnMappings.Cast<ITableColumnInformation>().ToList()));
     }
 }

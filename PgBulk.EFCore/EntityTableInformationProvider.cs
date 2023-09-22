@@ -32,7 +32,7 @@ public class EntityTableInformationProvider : ITableInformationProvider
             .GetProperties()
             .Where(p => p.PropertyInfo != null)
             .Select(p => new EntityColumnInformation(p.GetColumnName(storeObjectIdentifier) ?? p.Name, p.IsPrimaryKey(), p.ValueGenerated == ValueGenerated.OnAdd, p.PropertyInfo));
-        var entityTableInformation = new EntityTableInformation(tableName, columns);
+        var entityTableInformation = new EntityTableInformation(model.GetSchema() ?? model.GetDefaultSchema() ?? "public", tableName, columns);
 
         return Task.FromResult((ITableInformation)entityTableInformation);
     }

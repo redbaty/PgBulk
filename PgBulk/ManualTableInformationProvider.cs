@@ -8,8 +8,8 @@ public class ManualTableInformationProvider : ITableInformationProvider
 
     public Task<ITableInformation> GetTableInformation(Type entityType)
     {
-        if (TableColumnInformations.ContainsKey(entityType))
-            return Task.FromResult((ITableInformation)TableColumnInformations[entityType]);
+        if (TableColumnInformations.TryGetValue(entityType, out var information))
+            return Task.FromResult((ITableInformation)information);
 
         throw new NotImplementedException();
     }

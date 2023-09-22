@@ -5,18 +5,15 @@ namespace PgBulk;
 
 public sealed class NpgsqlBinaryImporter<T> : IDisposable, IAsyncDisposable
 {
-    public NpgsqlBinaryImporter(NpgsqlBinaryImporter binaryImporter, ITableInformation tableInformation)
+    public NpgsqlBinaryImporter(NpgsqlBinaryImporter binaryImporter, ICollection<ITableColumnInformation> columns)
     {
         BinaryImporter = binaryImporter;
-        TableInformation = tableInformation;
-        WritableColumns = TableInformation.Columns.Where(i => !i.ValueGeneratedOnAdd).ToList();
+        Columns = columns;
     }
 
     private NpgsqlBinaryImporter BinaryImporter { get; }
 
-    private ITableInformation TableInformation { get; }
-
-    private ICollection<ITableColumnInformation> WritableColumns { get; }
+    private ICollection<ITableColumnInformation> Columns { get; }
 
     public async ValueTask DisposeAsync()
     {
@@ -36,7 +33,7 @@ public sealed class NpgsqlBinaryImporter<T> : IDisposable, IAsyncDisposable
         {
             await BinaryImporter.StartRowAsync();
 
-            foreach (var columnValue in WritableColumns.Select(i => i.GetValue(entity)))
+            foreach (var columnValue in Columns.Select(i => i.GetValue(entity)))
                 await BinaryImporter.WriteAsync(columnValue);
 
             inserted++;

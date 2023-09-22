@@ -14,6 +14,7 @@ public class EntityColumnInformation : ITableColumnInformation
     }
 
     private PropertyInfo? Property { get; }
+    
     public string Name { get; }
 
     public bool PrimaryKey { get; }

@@ -30,6 +30,7 @@ public class EntityTableInformationProvider : ITableInformationProvider
 #endif
         var columns = model
             .GetProperties()
+            .Where(p => p.PropertyInfo != null)
             .Select(p => new EntityColumnInformation(p.GetColumnName(storeObjectIdentifier) ?? p.Name, p.IsPrimaryKey(), p.ValueGenerated == ValueGenerated.OnAdd, p.PropertyInfo));
         var entityTableInformation = new EntityTableInformation(tableName, columns);
 

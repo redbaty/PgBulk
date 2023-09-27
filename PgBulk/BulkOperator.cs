@@ -191,7 +191,10 @@ public class BulkOperator
     /// <returns></returns>
     public async Task<NpgsqlBinaryImporter<T>> CreateBinaryImporterAsync<T>(NpgsqlConnection connection, IEnumerable<ITableColumnInformation> columns, string targetTableName, string? targetSchema = null)
     {
-        var columnsFiltered = columns.Where(i => i.ValueGeneratedOnAdd).ToList();
+        var columnsFiltered = columns.Where(i => !i.ValueGeneratedOnAdd).ToList();
+        
+        if(columnsFiltered.Count <= 0)
+            throw new InvalidOperationException("No valid columns found on type " + typeof(T).Name);
         
         var columnsString = columnsFiltered
             .Select(i => $"\"{i.Name}\"")

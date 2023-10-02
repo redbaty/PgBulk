@@ -33,8 +33,19 @@ public sealed class NpgsqlBinaryImporter<T> : IDisposable, IAsyncDisposable
         {
             await BinaryImporter.StartRowAsync();
 
-            foreach (var columnValue in Columns.Select(i => i.GetValue(entity)))
-                await BinaryImporter.WriteAsync(columnValue);
+            foreach (var column in Columns)
+            {
+                var value = column.GetValue(entity);
+
+                if (value == null)
+                {
+                    await BinaryImporter.WriteNullAsync();
+                }
+                else
+                {
+                    await BinaryImporter.WriteAsync(value);
+                }
+            }
 
             inserted++;
         }

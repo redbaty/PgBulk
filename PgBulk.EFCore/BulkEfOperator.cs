@@ -40,13 +40,13 @@ public class BulkEfOperator : BulkOperator
             return await base.CreateOpenedConnection();
 
         if (DbContext.Database.GetDbConnection() is not NpgsqlConnection npgsqlConnection) throw new InvalidOperationException("Connection is not NpgsqlConnection");
-        
+
         if (npgsqlConnection.State == ConnectionState.Closed)
             await npgsqlConnection.OpenAsync();
 
         return npgsqlConnection;
     }
-
+    
     public override void LogBeforeCommand(NpgsqlCommand npgsqlCommand)
     {
         Logger?.LogInformation("Executing command {@Command}", npgsqlCommand.CommandText);

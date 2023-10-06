@@ -18,7 +18,7 @@ public class BulkOperator
         TableInformationProvider = tableInformationProvider;
     }
 
-    protected ITableInformationProvider TableInformationProvider { get; }
+    public ITableInformationProvider TableInformationProvider { get; }
 
     protected bool DisposeConnection { get; set; } = true;
 
@@ -172,6 +172,12 @@ public class BulkOperator
     public virtual string GetTemporaryTableName(ITableInformation tableColumnInformation)
     {
         return $"{tableColumnInformation.Name}_temp_{Nanoid.Nanoid.Generate(size: 10)}";
+    }
+
+    public async Task<NpgsqlBinaryImporter<T>> CreateBinaryImporterAsync<T>()
+    {
+        await using var connection = await CreateOpenedConnection();
+        return await CreateBinaryImporterAsync<T>(connection);
     }
 
     public async Task<NpgsqlBinaryImporter<T>> CreateBinaryImporterAsync<T>(NpgsqlConnection connection)

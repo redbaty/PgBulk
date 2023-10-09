@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
         <PackageProjectUrl>https://github.com/redbaty/PgBulk</PackageProjectUrl>
-        <PackageVersion>1.1.12</PackageVersion>
+        <PackageVersion>1.1.13</PackageVersion>
     </PropertyGroup>
 
     <ItemGroup>

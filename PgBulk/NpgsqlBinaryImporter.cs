@@ -15,6 +15,8 @@ public sealed class NpgsqlBinaryImporter<T> : IDisposable, IAsyncDisposable
 
     private ICollection<ITableColumnInformation> Columns { get; }
 
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
+
     public async ValueTask DisposeAsync()
     {
         await BinaryImporter.DisposeAsync();
@@ -40,12 +42,21 @@ public sealed class NpgsqlBinaryImporter<T> : IDisposable, IAsyncDisposable
 
     public async Task WriteToBinaryImporter(T entity)
     {
-        await BinaryImporter.StartRowAsync();
-
-        foreach (var column in Columns)
+        await _writeLock.WaitAsync();
+        
+        try
         {
-            var value = column.GetValue(entity);
-            await BinaryImporter.WriteAsync(value);
+            await BinaryImporter.StartRowAsync();
+
+            foreach (var column in Columns)
+            {
+                var value = column.GetValue(entity);
+                await BinaryImporter.WriteAsync(value);
+            }
+        }
+        finally
+        {
+            _writeLock.Release();
         }
     }
 

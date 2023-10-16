@@ -27,8 +27,10 @@ public class EntityColumnInformation : ITableColumnInformation
             throw new InvalidOperationException("No property is set for this column");
 
         var truePropertyType = Nullable.GetUnderlyingType(Property.PropertyType) ?? Property.PropertyType;
-        return truePropertyType.IsEnum
-            ? Convert.ToInt32(Property.GetValue(entity))
-            : Property.GetValue(entity);
+        var value = Property.GetValue(entity);
+        
+        return truePropertyType.IsEnum && value != null
+            ? Convert.ToInt32(value)
+            : value;
     }
 }

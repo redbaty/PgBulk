@@ -10,7 +10,9 @@ public class EFCoreTests
     private static Faker<TestRow> Faker => new Faker<TestRow>().RuleFor(i => i.Id, f => f.IndexFaker)
         .RuleFor(i => i.Value1, f => f.Address.City())
         .RuleFor(i => i.Value2, f => f.Company.CompanyName())
-        .RuleFor(i => i.Value3, f => f.PickRandom(null, f.Name.Suffix()));
+        .RuleFor(i => i.Value3, f => f.PickRandom(null, f.Name.Suffix()))
+        .RuleFor(i => i.Value4, f => f.PickRandom<TestEnum?>(null, TestEnum.Value1, TestEnum.Value2, TestEnum.Value3))
+    ;
 
     private static MyContext CreateContext()
     {

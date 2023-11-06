@@ -23,10 +23,10 @@ public static class ContextExtensions
         return @operator.MergeAsync(entities, tableKeyProvider);
     }
 
-    public static Task BulkInsertAsync<T>(this DbContext dbContext, IEnumerable<T> entities, int? timeoutOverride = 600, bool useContextConnection = true) where T : class
+    public static Task BulkInsertAsync<T>(this DbContext dbContext, IEnumerable<T> entities, int? timeoutOverride = 600, bool useContextConnection = true, bool onConflictIgnore = false) where T : class
     {
         var @operator = new BulkEfOperator(dbContext, timeoutOverride, useContextConnection);
-        return @operator.InsertAsync(entities);
+        return @operator.InsertAsync(entities, onConflictIgnore);
     }
 
     public static BulkEfOperator GetBulkOperator(this DbContext dbContext, int? timeoutOverride = 600, bool useContextConnection = true)

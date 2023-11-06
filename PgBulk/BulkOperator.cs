@@ -38,7 +38,7 @@ public class BulkOperator
         await connection.OpenAsync();
         return connection;
     }
-    
+
     public async Task MergeAsync<T>(ICollection<T> entities, ITableKeyProvider? tableKeyProvider = null)
     {
         var connection = await CreateOpenedConnection();
@@ -54,13 +54,13 @@ public class BulkOperator
         }
     }
 
-    public async Task InsertAsync<T>(IEnumerable<T> entities)
+    public async Task InsertAsync<T>(IEnumerable<T> entities, bool onConflictIgnore)
     {
         var connection = await CreateOpenedConnection();
 
         try
         {
-            await InsertToTableAsync(connection, entities);
+            await InsertToTableAsync(connection, entities, onConflictIgnore);
         }
         finally
         {
@@ -69,10 +69,10 @@ public class BulkOperator
         }
     }
 
-    private async Task<ulong> InsertToTableAsync<T>(NpgsqlConnection npgsqlConnection, IEnumerable<T> entities)
+    private async Task<ulong> InsertToTableAsync<T>(NpgsqlConnection npgsqlConnection, IEnumerable<T> entities, bool onConflictIgnore)
     {
         var tableInformation = await TableInformationProvider.GetTableInformation(typeof(T));
-        return await InsertToTableAsync(npgsqlConnection, entities, tableInformation, tableInformation.Name);
+        return await InsertToTableAsync(npgsqlConnection, entities, tableInformation, tableInformation.Name, onConflictIgnore);
     }
 
     public virtual async Task MergeAsync<T>(NpgsqlConnection connection, ICollection<T> entities, ITableKeyProvider tableKeyProvider, Func<string, string, Task>? runAfterTemporaryTableInsert = null)
@@ -81,7 +81,7 @@ public class BulkOperator
         var temporaryName = GetTemporaryTableName(tableInformation);
 
         await CreateTemporaryTable(connection, tableInformation, temporaryName);
-        await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
+        await InsertToTableAsync(connection, entities, tableInformation, temporaryName, false);
 
         if (runAfterTemporaryTableInsert != null) await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
 
@@ -119,27 +119,27 @@ public class BulkOperator
             {
                 var deleteScriptBuilder = new StringBuilder($"delete from \"{tableInformation.Schema}\".\"{tableInformation.Name}\" where ");
                 var first = true;
-                    
+
                 foreach (var column in tableKey.Columns.OrderBy(i => i.Index))
                 {
-                    if(!first)
+                    if (!first)
                         deleteScriptBuilder.Append(" and ");
-                        
+
                     deleteScriptBuilder.Append($"{column.SafeName} = @p{column.Index}");
                     first = false;
                 }
-                
+
                 var deleteScript = deleteScriptBuilder.ToString();
-                
+
                 foreach (var entity in entities)
                 {
                     var npgsqlParameters = tableKey.Columns
                         .Select(i => new NpgsqlParameter($"p{i.Index}", i.GetValue(entity)))
                         .ToArray();
-                    
+
                     await ExecuteCommand(connection, deleteScript, npgsqlParameters);
                 }
-                
+
                 await ExecuteCommand(connection, $"insert into \"{tableInformation.Schema}\".\"{tableInformation.Name}\" (select * from \"{temporaryName}\")");
                 await transaction.CommitAsync();
             }
@@ -168,7 +168,7 @@ public class BulkOperator
                 npgsqlCommand.Parameters.Add(parameter);
             }
         }
-        
+
         LogBeforeCommand(npgsqlCommand);
         var stopWatch = Stopwatch.StartNew();
         var updatedRows = await npgsqlCommand.ExecuteNonQueryAsync();
@@ -200,7 +200,7 @@ public class BulkOperator
         var temporaryName = GetTemporaryTableName(tableInformation);
 
         await CreateTemporaryTable(connection, tableInformation, temporaryName);
-        await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
+        await InsertToTableAsync(connection, entities, tableInformation, temporaryName, false);
 
         if (runAfterTemporaryTableInsert != null) await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
 
@@ -248,30 +248,42 @@ public class BulkOperator
     public async Task<NpgsqlBinaryImporter<T>> CreateBinaryImporterAsync<T>(NpgsqlConnection connection, IEnumerable<ITableColumnInformation> columns, string targetTableName, string? targetSchema = null)
     {
         var columnsFiltered = columns.Where(i => !i.ValueGeneratedOnAdd).ToList();
-        
-        if(columnsFiltered.Count <= 0)
+
+        if (columnsFiltered.Count <= 0)
             throw new InvalidOperationException("No valid columns found on type " + typeof(T).Name);
-        
+
         var columnsString = columnsFiltered
             .Select(i => $"\"{i.Name}\"")
             .Aggregate((x, y) => $"{x}, {y}");
-        
+
         var commandBuilder = new StringBuilder("COPY ");
 
         if (!string.IsNullOrEmpty(targetSchema))
         {
             commandBuilder.Append($"\"{targetSchema}\".");
         }
-        
+
         commandBuilder.Append($"\"{targetTableName}\" ({columnsString}) FROM STDIN (FORMAT BINARY)");
-        
+
         var command = commandBuilder.ToString();
-        
+
 #if NET5_0
         return await Task.FromResult(new NpgsqlBinaryImporter<T>(connection.BeginBinaryImport(command), columnsFiltered));
 #else
         return new NpgsqlBinaryImporter<T>(await connection.BeginBinaryImportAsync(command), columnsFiltered);
 #endif
+    }
+
+    private async Task<ulong> InsertToTableAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, ITableInformation tableInformation, string tableName, bool onConflictIgnore)
+    {
+        if (!onConflictIgnore) return await InsertToTableAsync(connection, entities, tableInformation, tableName);
+        
+        var temporaryName = GetTemporaryTableName(tableInformation);
+        await CreateTemporaryTable(connection, tableInformation, temporaryName);
+        await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
+        var count = await ExecuteCommand(connection, $"insert into \"{tableInformation.Schema}\".\"{tableInformation.Name}\" (select * from \"{temporaryName}\") ON CONFLICT DO NOTHING");
+        return (ulong)count;
+
     }
 
     private async Task<ulong> InsertToTableAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, ITableInformation tableInformation, string tableName)

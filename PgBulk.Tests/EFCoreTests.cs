@@ -32,6 +32,31 @@ public class EFCoreTests
 
         await myContext.Database.EnsureDeletedAsync();
     }
+    
+    [TestMethod]
+    [DataRow(100)]
+    [DataRow(1000)]
+    public async Task InsertConflictIgnore(int value)
+    {
+        await using var myContext = CreateContext();
+        var testRows = Faker.Generate(value);
+        await myContext.BulkInsertAsync(testRows);
+
+        var currentCount = await myContext.TestRows.CountAsync();
+        Assert.AreEqual(value, currentCount);
+        
+        var newRows = Faker
+            .RuleFor(x => x.Id, f => f.IndexFaker + testRows.Count - 5)
+            .Generate(10)
+            .ToArray();
+        
+        await myContext.BulkInsertAsync(newRows, onConflictIgnore: true);
+        currentCount = await myContext.TestRows.CountAsync();
+
+        Assert.AreEqual(value + 5, currentCount);
+        
+        await myContext.Database.EnsureDeletedAsync();
+    }
 
     [TestMethod]
     [DataRow(100)]

@@ -19,8 +19,11 @@ public class ManualTableColumnInformationBuilder<T>
 
     public ManualTableColumnInformationBuilder<T> Automap()
     {
-        foreach (var propertyInfo in typeof(T).GetProperties().Where(i => i is { CanRead: true, CanWrite: true })) 
-            ColumnMappings.Add(new ManualTableColumnMapping(propertyInfo.Name, propertyInfo, false));
+        foreach (var propertyInfo in typeof(T).GetProperties().Where(i => i is { CanRead: true, CanWrite: true }))
+        {
+            var previousMax = ColumnMappings.Count < 1 ? 0 : ColumnMappings.Max(x => x.Index);
+            ColumnMappings.Add(new ManualTableColumnMapping(propertyInfo.Name, propertyInfo, false, previousMax + 1));
+        }
 
         return this;
     }
@@ -28,7 +31,8 @@ public class ManualTableColumnInformationBuilder<T>
     public ManualTableColumnInformationBuilder<T> Property<TObj>(Expression<Func<T, TObj>> propertyLambda, string columnName, bool primaryKey = false)
     {
         var propertyInfo = propertyLambda.GetProperty();
-        var columnMapping = new ManualTableColumnMapping(columnName, propertyInfo, primaryKey);
+        var previousMax = ColumnMappings.Count < 1 ? 0 : ColumnMappings.Max(x => x.Index);
+        var columnMapping = new ManualTableColumnMapping(columnName, propertyInfo, primaryKey, previousMax + 1);
         ColumnMappings.Add(columnMapping);
 
         return this;

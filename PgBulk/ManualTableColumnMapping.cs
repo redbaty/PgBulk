@@ -5,16 +5,19 @@ namespace PgBulk;
 
 public record ManualTableColumnMapping : ITableColumnInformation
 {
-    public ManualTableColumnMapping(string name, PropertyInfo? property, bool valueGeneratedOnAdd, bool primaryKey = false)
+    public ManualTableColumnMapping(string name, PropertyInfo? property, bool valueGeneratedOnAdd, int index, bool primaryKey = false)
     {
         Name = name;
         Property = property;
         ValueGeneratedOnAdd = valueGeneratedOnAdd;
+        Index = index;
         PrimaryKey = primaryKey;
     }
 
     internal PropertyInfo? Property { get; }
-
+    
+    public int Index { get; }
+    
     public string Name { get; }
 
     public bool PrimaryKey { get; internal set; }

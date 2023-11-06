@@ -38,14 +38,14 @@ public class BulkOperator
         await connection.OpenAsync();
         return connection;
     }
-
-    public async Task MergeAsync<T>(IEnumerable<T> entities)
+    
+    public async Task MergeAsync<T>(ICollection<T> entities, ITableKeyProvider? tableKeyProvider = null)
     {
         var connection = await CreateOpenedConnection();
 
         try
         {
-            await MergeAsync(connection, entities);
+            await MergeAsync(connection, entities, tableKeyProvider ?? new DefaultTableKeyProvider());
         }
         finally
         {
@@ -75,7 +75,7 @@ public class BulkOperator
         return await InsertToTableAsync(npgsqlConnection, entities, tableInformation, tableInformation.Name);
     }
 
-    public virtual async Task MergeAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, Func<string, string, Task>? runAfterTemporaryTableInsert = null)
+    public virtual async Task MergeAsync<T>(NpgsqlConnection connection, ICollection<T> entities, ITableKeyProvider tableKeyProvider, Func<string, string, Task>? runAfterTemporaryTableInsert = null)
     {
         var tableInformation = await TableInformationProvider.GetTableInformation(typeof(T));
         var temporaryName = GetTemporaryTableName(tableInformation);
@@ -85,29 +85,69 @@ public class BulkOperator
 
         if (runAfterTemporaryTableInsert != null) await runAfterTemporaryTableInsert(tableInformation.Name, temporaryName);
 
-        var primaryKeyColumns = tableInformation.Columns
-            .Where(i => i is { PrimaryKey: true, ValueGeneratedOnAdd: false })
-            .Select(i => $"\"{i.Name}\"")
+        var tableKey = tableKeyProvider.GetKeyColumns(tableInformation);
+        var primaryKeyColumns = tableKey
+            .Columns
+            .Select(i => i.SafeName)
             .DefaultIfEmpty()
             .Aggregate((x, y) => $"{x},{y}");
 
         if (string.IsNullOrEmpty(primaryKeyColumns))
             throw new InvalidOperationException($"No primary keys defined for table \"{tableInformation.Name}\"");
 
-        var setStatement = tableInformation.Columns
-            .Where(i => !i.PrimaryKey)
-            .Select(i => $"\"{i.Name}\" = EXCLUDED.\"{i.Name}\"")
-            .DefaultIfEmpty()
-            .Aggregate((x, y) => $"{x}, {y}");
+        if (tableKey.IsUniqueConstraint)
+        {
+            var setStatement = tableInformation.Columns
+                .Where(i => !i.PrimaryKey)
+                .Select(i => $"\"{i.Name}\" = EXCLUDED.\"{i.Name}\"")
+                .DefaultIfEmpty()
+                .Aggregate((x, y) => $"{x}, {y}");
 
-        var baseCommand = new StringBuilder($"insert into \"{tableInformation.Schema}\".\"{tableInformation.Name}\" (select * from \"{temporaryName}\") ON CONFLICT ");
+            var baseCommand = new StringBuilder($"insert into \"{tableInformation.Schema}\".\"{tableInformation.Name}\" (select * from \"{temporaryName}\") ON CONFLICT ");
 
-        if (!string.IsNullOrEmpty(setStatement))
-            baseCommand.Append($"({primaryKeyColumns}) DO UPDATE SET {setStatement}");
+            if (!string.IsNullOrEmpty(setStatement))
+                baseCommand.Append($"({primaryKeyColumns}) DO UPDATE SET {setStatement}");
+            else
+                baseCommand.Append("DO NOTHING");
+
+            await ExecuteCommand(connection, baseCommand.ToString());
+        }
         else
-            baseCommand.Append("DO NOTHING");
-        
-        await ExecuteCommand(connection, baseCommand.ToString());
+        {
+            await using var transaction = await connection.BeginTransactionAsync();
+            try
+            {
+                var deleteScriptBuilder = new StringBuilder($"delete from \"{tableInformation.Schema}\".\"{tableInformation.Name}\" where ");
+                var first = true;
+                    
+                foreach (var column in tableKey.Columns.OrderBy(i => i.Index))
+                {
+                    if(!first)
+                        deleteScriptBuilder.Append(" and ");
+                        
+                    deleteScriptBuilder.Append($"{column.SafeName} = @p{column.Index}");
+                    first = false;
+                }
+                
+                var deleteScript = deleteScriptBuilder.ToString();
+                
+                foreach (var entity in entities)
+                {
+                    var npgsqlParameters = tableKey.Columns
+                        .Select(i => new NpgsqlParameter($"p{i.Index}", i.GetValue(entity)))
+                        .ToArray();
+                    
+                    await ExecuteCommand(connection, deleteScript, npgsqlParameters);
+                }
+                
+                await ExecuteCommand(connection, $"insert into \"{tableInformation.Schema}\".\"{tableInformation.Name}\" (select * from \"{temporaryName}\")");
+                await transaction.CommitAsync();
+            }
+            finally
+            {
+                await transaction.DisposeAsync();
+            }
+        }
     }
 
     private async Task CreateTemporaryTable(NpgsqlConnection connection, ITableInformation sourceTable, string temporaryName)
@@ -116,17 +156,27 @@ public class BulkOperator
         await ExecuteCommand(connection, script);
     }
 
-    private async Task ExecuteCommand(NpgsqlConnection connection, string script)
+    private async Task<int> ExecuteCommand(NpgsqlConnection connection, string script, IEnumerable<NpgsqlParameter>? parameters = null)
     {
         await using var npgsqlCommand = connection.CreateCommand();
         npgsqlCommand.CommandText = script;
 
+        if (parameters != null)
+        {
+            foreach (var parameter in parameters)
+            {
+                npgsqlCommand.Parameters.Add(parameter);
+            }
+        }
+        
         LogBeforeCommand(npgsqlCommand);
         var stopWatch = Stopwatch.StartNew();
-        await npgsqlCommand.ExecuteNonQueryAsync();
+        var updatedRows = await npgsqlCommand.ExecuteNonQueryAsync();
 
         stopWatch.Start();
         LogAfterCommand(npgsqlCommand, stopWatch.Elapsed);
+
+        return updatedRows;
     }
 
     public async Task SyncAsync<T>(IEnumerable<T> entities, string? deleteWhere = null, Func<string, string, Task>? runAfterTemporaryTableInsert = null)

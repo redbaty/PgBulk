@@ -65,6 +65,44 @@ public class EFCoreTests
 
         await myContext.Database.EnsureDeletedAsync();
     }
+    
+    [TestMethod]
+    [DataRow(100)]
+    [DataRow(1000)]
+    public async Task UpsertCustomKey(int value)
+    {
+        await using var myContext = CreateContext();
+        try
+        {
+            var customKeyProvider = new EntityManualTableKeyProvider<TestRow>();
+            await customKeyProvider.AddKeyColumn(i => i.Value1, myContext);
+        
+            var testRows = Faker.Generate(value).OrderBy(i => i.Value1).ToArray();
+            await myContext.BulkMergeAsync(testRows, tableKeyProvider: customKeyProvider);
+
+            var currentCount = await myContext.TestRows.CountAsync();
+            Assert.AreEqual(value, currentCount);
+
+            var values = testRows.Select(i => i.Value1).Take(10).ToList();
+            var newRows = Faker
+                .RuleFor(x => x.Value1, f =>
+                {
+                    var picked = f.PickRandom(values);
+                    values.Remove(picked);
+                    return picked;
+                })
+                .RuleFor(x => x.Id, f => f.IndexFaker + testRows.Length)
+                .Generate(10).OrderBy(i => i.Value1).ToArray();
+            
+            await myContext.BulkMergeAsync(newRows, tableKeyProvider: customKeyProvider);
+            currentCount = await myContext.TestRows.CountAsync();
+            Assert.AreEqual(value, currentCount);
+        }
+        finally
+        {
+            await myContext.Database.EnsureDeletedAsync();   
+        }
+    }
 
     [TestMethod]
     [DataRow(100)]

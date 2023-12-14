@@ -19,7 +19,7 @@ public record ManualTableColumnMapping : ITableColumnInformation
         Index = index;
         PrimaryKey = primaryKey;
         _property = property;
-        _propertyReadAccess = property == null ? null : PropertyAccessFactory.CreateRead(property.DeclaringType!, name);
+        _propertyReadAccess = property == null ? null : PropertyAccessFactory.CreateRead(property);
         _truePropertyType = property == null ? null : Nullable.GetUnderlyingType(property.PropertyType) ?? property?.PropertyType;
     }
 

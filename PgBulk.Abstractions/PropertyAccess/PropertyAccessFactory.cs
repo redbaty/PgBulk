@@ -4,14 +4,9 @@ namespace PgBulk.Abstractions.PropertyAccess;
 
 public class PropertyAccessFactory
 {
-    public static IPropertyReadAccess? CreateRead(Type targetType, string name)
+    public static IPropertyReadAccess? CreateRead(PropertyInfo propertyInfo)
     {
-        var propertyInfo = targetType.GetProperty(name);
-
-        if (propertyInfo == null)
-            throw new ArgumentException($"Property {name} not found on type {targetType.FullName}");
-
-        return targetType.IsValueType ? CreateForValue(propertyInfo) : CreateForClass(propertyInfo);
+        return propertyInfo.DeclaringType!.IsValueType ? CreateForValue(propertyInfo) : CreateForClass(propertyInfo);
     }
 
     public static IClassPropertyAccess? CreateForClass(PropertyInfo propertyInfo)

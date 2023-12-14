@@ -1,4 +1,6 @@
-﻿namespace PgBulk.Abstractions;
+﻿using PgBulk.Abstractions.PropertyAccess;
+
+namespace PgBulk.Abstractions;
 
 public interface ITableColumnInformation
 {
@@ -12,5 +14,5 @@ public interface ITableColumnInformation
 
     bool ValueGeneratedOnAdd { get; }
 
-    object? GetValue(object? entity);
+    object? GetValue(object entity);
 }

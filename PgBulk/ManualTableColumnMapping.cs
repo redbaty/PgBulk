@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using PgBulk.Abstractions;
+using PgBulk.Abstractions.PropertyAccess;
 
 namespace PgBulk;
 
@@ -12,9 +13,13 @@ public record ManualTableColumnMapping : ITableColumnInformation
         ValueGeneratedOnAdd = valueGeneratedOnAdd;
         Index = index;
         PrimaryKey = primaryKey;
+        _propertyReadAccess = property == null ? null : PropertyAccessFactory.CreateRead(property.DeclaringType!, name);
+        _truePropertyType = property == null ? null : Nullable.GetUnderlyingType(property.PropertyType) ?? property?.PropertyType;
     }
 
-    internal PropertyInfo? Property { get; }
+    private PropertyInfo? Property { get; }
+    
+    private readonly Type? _truePropertyType;
     
     public int Index { get; }
     
@@ -23,14 +28,18 @@ public record ManualTableColumnMapping : ITableColumnInformation
     public bool PrimaryKey { get; internal set; }
 
     public bool ValueGeneratedOnAdd { get; }
+    
+    private readonly IPropertyReadAccess? _propertyReadAccess;
 
-    public object? GetValue(object? entity)
+    public object? GetValue(object entity)
     {
         if (Property == null)
             throw new InvalidOperationException("No property is set for this column");
 
-        return Property.PropertyType.IsEnum
-            ? Convert.ToInt32(Property.GetValue(entity))
-            : Property.GetValue(entity);
+        var value = _propertyReadAccess!.GetValue(entity);
+        
+        return _truePropertyType!.IsEnum && value != null
+            ? Convert.ToInt32(value)
+            : value;
     }
 }

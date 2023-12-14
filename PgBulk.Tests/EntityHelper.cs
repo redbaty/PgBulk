@@ -30,7 +30,6 @@ internal static class EntityHelper
         var optionsBuilder = new DbContextOptionsBuilder().UseNpgsql(npgsqlCs.ToString());
         var myContext = new MyContext(optionsBuilder.Options);
         myContext.Database.EnsureCreated();
-
         return myContext;
     }
 }

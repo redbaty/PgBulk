@@ -1,36 +1,37 @@
 using Npgsql;
 using PgBulk.Abstractions;
+using PgBulk.Abstractions.PropertyAccess;
 
 namespace PgBulk;
 
 public sealed class NpgsqlBinaryImporter<T> : IDisposable, IAsyncDisposable
 {
-    public NpgsqlBinaryImporter(NpgsqlBinaryImporter binaryImporter, ICollection<ITableColumnInformation> columns)
+    public NpgsqlBinaryImporter(NpgsqlBinaryImporter binaryImporter, IEnumerable<ITableColumnInformation> columns)
     {
-        BinaryImporter = binaryImporter;
-        Columns = columns;
+        _binaryImporter = binaryImporter;
+        _columns = columns.ToList();
     }
 
-    private NpgsqlBinaryImporter BinaryImporter { get; }
+    private readonly NpgsqlBinaryImporter _binaryImporter;
 
-    private ICollection<ITableColumnInformation> Columns { get; }
+    private readonly ICollection<ITableColumnInformation> _columns;
 
     private readonly SemaphoreSlim _writeLock = new(1, 1);
 
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        await BinaryImporter.DisposeAsync();
+        return _binaryImporter.DisposeAsync();
     }
 
     public void Dispose()
     {
-        BinaryImporter.Dispose();
+        _binaryImporter.Dispose();
     }
 
-    public async Task<ulong> WriteToBinaryImporter(IEnumerable<T> entities)
+    public async ValueTask<ulong> WriteToBinaryImporter(IEnumerable<T> entities)
     {
         ulong inserted = 0;
-
+        
         foreach (var entity in entities)
         {
             await WriteToBinaryImporter(entity);
@@ -40,18 +41,25 @@ public sealed class NpgsqlBinaryImporter<T> : IDisposable, IAsyncDisposable
         return inserted;
     }
 
-    public async Task WriteToBinaryImporter(T entity)
+    public ValueTask WriteToBinaryImporter(T entity)
+    {
+        if (entity == null)
+            throw new ArgumentNullException(nameof(entity));
+        
+        return WriteToBinaryImporter(_columns.Select(c => c.GetValue(entity)));
+    }
+    
+    public async ValueTask WriteToBinaryImporter(IEnumerable<object?> values)
     {
         await _writeLock.WaitAsync();
         
         try
         {
-            await BinaryImporter.StartRowAsync();
+            await _binaryImporter.StartRowAsync();
 
-            foreach (var column in Columns)
+            foreach (var value in values)
             {
-                var value = column.GetValue(entity);
-                await BinaryImporter.WriteAsync(value);
+                await _binaryImporter.WriteAsync(value);
             }
         }
         finally
@@ -62,6 +70,6 @@ public sealed class NpgsqlBinaryImporter<T> : IDisposable, IAsyncDisposable
 
     public ValueTask<ulong> CompleteAsync()
     {
-        return BinaryImporter.CompleteAsync();
+        return _binaryImporter.CompleteAsync();
     }
 }

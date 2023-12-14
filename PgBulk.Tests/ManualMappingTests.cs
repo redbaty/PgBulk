@@ -1,5 +1,6 @@
 ﻿using Bogus;
 using Microsoft.EntityFrameworkCore;
+using NanoidDotNet;
 
 namespace PgBulk.Tests;
 
@@ -22,7 +23,7 @@ public class ManualMappingTests
 
     private async Task<Tuple<ManualBulkOperator, MyContext>> GetOperator()
     {
-        var myContext = EntityHelper.CreateContext(await Nanoid.Nanoid.GenerateAsync(size: 8));
+        var myContext = EntityHelper.CreateContext(await Nanoid.GenerateAsync(size: 8));
         var bulkOperator = new ManualBulkOperator(myContext.Database.GetConnectionString(), ManualTableInformationProvider!);
         await bulkOperator.VerifyPrimaryKeys();
 
@@ -35,12 +36,18 @@ public class ManualMappingTests
     public async Task Insert(int value)
     {
         var (@operator, dbContext) = await GetOperator();
-        await @operator.MergeAsync(Faker.Generate(value));
+        
+        try
+        {
+            await @operator.MergeAsync(Faker.Generate(value));
 
-        var currentCount = await dbContext.TestRows.CountAsync();
-        Assert.AreEqual(value, currentCount);
-
-        await dbContext.Database.EnsureDeletedAsync();
+            var currentCount = await dbContext.TestRows.CountAsync();
+            Assert.AreEqual(value, currentCount);
+        }
+        finally
+        {
+            await dbContext.Database.EnsureDeletedAsync();
+        }
     }
 
     [TestMethod]
@@ -49,31 +56,37 @@ public class ManualMappingTests
     public async Task Upsert(int value)
     {
         var (@operator, dbContext) = await GetOperator();
-        var testRows = Faker.Generate(value).OrderBy(i => i.Id).ToArray();
-        await @operator.MergeAsync(testRows);
 
-        var currentCount = await dbContext.TestRows.CountAsync();
-        Assert.AreEqual(value, currentCount);
-
-        var newRows = Faker.Generate(10).OrderBy(i => i.Id).ToArray();
-        await @operator.MergeAsync(newRows);
-
-        Assert.AreEqual(value, currentCount);
-
-        var dbRows = dbContext.TestRows.OrderBy(i => i.Id).ToArray();
-
-        for (var index = 0; index < testRows.Length; index++)
+        try
         {
-            var originalRow = testRows[index];
-            var updatedRow = newRows.ElementAtOrDefault(index);
+            var testRows = Faker.Generate(value).OrderBy(i => i.Id).ToArray();
+            await @operator.MergeAsync(testRows);
 
-            Assert.AreEqual(index, dbRows[index].Id);
-            Assert.AreEqual(updatedRow != null ? updatedRow.Value1 : originalRow.Value1, dbRows[index].Value1);
-            Assert.AreEqual(updatedRow != null ? updatedRow.Value2 : originalRow.Value2, dbRows[index].Value2);
-            Assert.AreEqual(updatedRow != null ? updatedRow.Value3 : originalRow.Value3, dbRows[index].Value3);
+            var currentCount = await dbContext.TestRows.CountAsync();
+            Assert.AreEqual(value, currentCount);
+
+            var newRows = Faker.Generate(10).OrderBy(i => i.Id).ToArray();
+            await @operator.MergeAsync(newRows);
+
+            Assert.AreEqual(value, currentCount);
+
+            var dbRows = dbContext.TestRows.OrderBy(i => i.Id).ToArray();
+
+            for (var index = 0; index < testRows.Length; index++)
+            {
+                var originalRow = testRows[index];
+                var updatedRow = newRows.ElementAtOrDefault(index);
+
+                Assert.AreEqual(index, dbRows[index].Id);
+                Assert.AreEqual(updatedRow != null ? updatedRow.Value1 : originalRow.Value1, dbRows[index].Value1);
+                Assert.AreEqual(updatedRow != null ? updatedRow.Value2 : originalRow.Value2, dbRows[index].Value2);
+                Assert.AreEqual(updatedRow != null ? updatedRow.Value3 : originalRow.Value3, dbRows[index].Value3);
+            }
         }
-
-        await dbContext.Database.EnsureDeletedAsync();
+        finally
+        {
+            await dbContext.Database.EnsureDeletedAsync();
+        }
     }
 
     [TestMethod]
@@ -82,24 +95,30 @@ public class ManualMappingTests
     public async Task Sync(int value)
     {
         var (@operator, dbContext) = await GetOperator();
-        var testRows = Faker.Generate(value).OrderBy(i => i.Id).ToArray();
-        await @operator.SyncAsync(testRows);
 
-        var currentCount = await dbContext.TestRows.CountAsync();
-        Assert.AreEqual(value, currentCount);
+        try
+        {
+            var testRows = Faker.Generate(value).OrderBy(i => i.Id).ToArray();
+            await @operator.SyncAsync(testRows);
 
-        testRows = Faker.Generate(value * 2).OrderBy(i => i.Id).ToArray();
-        await @operator.SyncAsync(testRows);
+            var currentCount = await dbContext.TestRows.CountAsync();
+            Assert.AreEqual(value, currentCount);
 
-        currentCount = await dbContext.TestRows.CountAsync();
-        Assert.AreEqual(value * 2, currentCount);
+            testRows = Faker.Generate(value * 2).OrderBy(i => i.Id).ToArray();
+            await @operator.SyncAsync(testRows);
 
-        testRows = Faker.Generate(value).OrderBy(i => i.Id).ToArray();
-        await @operator.SyncAsync(testRows);
+            currentCount = await dbContext.TestRows.CountAsync();
+            Assert.AreEqual(value * 2, currentCount);
 
-        currentCount = await dbContext.TestRows.CountAsync();
-        Assert.AreEqual(value, currentCount);
+            testRows = Faker.Generate(value).OrderBy(i => i.Id).ToArray();
+            await @operator.SyncAsync(testRows);
 
-        await dbContext.Database.EnsureDeletedAsync();
+            currentCount = await dbContext.TestRows.CountAsync();
+            Assert.AreEqual(value, currentCount);
+        }
+        finally
+        {
+            await dbContext.Database.EnsureDeletedAsync();
+        }
     }
 }

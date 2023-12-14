@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Text;
+using NanoidDotNet;
 using Npgsql;
 using PgBulk.Abstractions;
 
@@ -221,7 +222,7 @@ public class BulkOperator
 
     public virtual string GetTemporaryTableName(ITableInformation tableColumnInformation)
     {
-        return $"{tableColumnInformation.Name}_temp_{Nanoid.Nanoid.Generate(size: 10)}";
+        return $"{tableColumnInformation.Name}_temp_{Nanoid.Generate(size: 10)}";
     }
 
     public async Task<NpgsqlBinaryImporter<T>> CreateBinaryImporterAsync<T>()

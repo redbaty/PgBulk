@@ -9,7 +9,7 @@ public record ManualTableColumnMapping : ITableColumnInformation
     public ManualTableColumnMapping(string name, PropertyInfo? property, bool valueGeneratedOnAdd, int index, bool primaryKey = false)
     {
         Name = name;
-        Property = property;
+        _property = property;
         ValueGeneratedOnAdd = valueGeneratedOnAdd;
         Index = index;
         PrimaryKey = primaryKey;
@@ -17,7 +17,7 @@ public record ManualTableColumnMapping : ITableColumnInformation
         _truePropertyType = property == null ? null : Nullable.GetUnderlyingType(property.PropertyType) ?? property?.PropertyType;
     }
 
-    private PropertyInfo? Property { get; }
+    private readonly PropertyInfo? _property;
     
     private readonly Type? _truePropertyType;
     
@@ -33,7 +33,7 @@ public record ManualTableColumnMapping : ITableColumnInformation
 
     public object? GetValue(object entity)
     {
-        if (Property == null)
+        if (_property == null)
             throw new InvalidOperationException("No property is set for this column");
 
         var value = _propertyReadAccess!.GetValue(entity);

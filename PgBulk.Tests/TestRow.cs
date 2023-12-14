@@ -16,6 +16,6 @@ public class TestRow
     public string Value2 { get; set; } = null!;
 
     public string? Value3 { get; set; }
-    
+
     public TestEnum? Value4 { get; set; }
 }

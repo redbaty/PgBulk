@@ -19,6 +19,11 @@ public class EntityManualTableKeyProvider<TEntity> : ITableKeyProvider
         _primaryKeyColumns = new List<ITableColumnInformation>();
     }
 
+    public TableKey GetKeyColumns(ITableInformation tableInformation)
+    {
+        return new TableKey(_primaryKeyColumns, false);
+    }
+
     public async ValueTask AddKeyColumn<TObj>(Expression<Func<TEntity, TObj>> propertyLambda, DbContext dbContext)
     {
         var entityTableInformationProvider = new EntityTableInformationProvider(dbContext);
@@ -37,10 +42,5 @@ public class EntityManualTableKeyProvider<TEntity> : ITableKeyProvider
             _primaryKeyColumns.Add(entityColumnInformation);
         else
             throw new InvalidOperationException($"Could not find column information for property {property.Name}");
-    }
-
-    public TableKey GetKeyColumns(ITableInformation tableInformation)
-    {
-        return new TableKey(_primaryKeyColumns, false);
     }
 }

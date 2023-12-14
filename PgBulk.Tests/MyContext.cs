@@ -13,9 +13,6 @@ public class MyContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresEnum<TestEnum>();
-        modelBuilder.Entity<TestRow>(e =>
-        {
-            e.Property(i => i.Id).ValueGeneratedNever();
-        });
+        modelBuilder.Entity<TestRow>(e => { e.Property(i => i.Id).ValueGeneratedNever(); });
     }
 }

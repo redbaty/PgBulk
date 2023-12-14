@@ -8,6 +8,6 @@ public record EntityColumnInformation : ManualTableColumnMapping
     {
         Property = property;
     }
-    
+
     public PropertyInfo? Property { get; }
 }

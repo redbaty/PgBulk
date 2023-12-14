@@ -16,7 +16,7 @@ public static class ContextExtensions
         var @operator = new BulkEfOperator(dbContext, timeoutOverride, useContextConnection);
         return @operator.MergeAsync(entities.ToList(), tableKeyProvider);
     }
-    
+
     public static Task BulkMergeAsync<T>(this DbContext dbContext, ICollection<T> entities, int? timeoutOverride = 600, bool useContextConnection = true, ITableKeyProvider? tableKeyProvider = null) where T : class
     {
         var @operator = new BulkEfOperator(dbContext, timeoutOverride, useContextConnection);

@@ -12,7 +12,7 @@ public class ManualTableInformation : ITableInformation
     }
 
     public string Name { get; }
-    
+
     public string Schema { get; }
 
     public ICollection<ITableColumnInformation> Columns { get; }

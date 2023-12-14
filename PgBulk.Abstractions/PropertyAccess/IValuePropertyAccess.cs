@@ -1,6 +1,5 @@
-﻿namespace PgBulk.Abstractions.PropertyAccess
+﻿namespace PgBulk.Abstractions.PropertyAccess;
+
+public interface IValuePropertyAccess : IPropertyReadAccess
 {
-    public interface IValuePropertyAccess : IPropertyReadAccess
-    {
-    }
 }

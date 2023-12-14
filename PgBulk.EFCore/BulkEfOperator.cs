@@ -46,7 +46,7 @@ public class BulkEfOperator : BulkOperator
 
         return npgsqlConnection;
     }
-    
+
     public override void LogBeforeCommand(NpgsqlCommand npgsqlCommand)
     {
         Logger?.LogInformation("Executing command {@Command}", npgsqlCommand.CommandText);

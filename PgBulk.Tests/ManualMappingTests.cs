@@ -36,7 +36,7 @@ public class ManualMappingTests
     public async Task Insert(int value)
     {
         var (@operator, dbContext) = await GetOperator();
-        
+
         try
         {
             await @operator.MergeAsync(Faker.Generate(value));

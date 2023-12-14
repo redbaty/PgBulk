@@ -6,30 +6,30 @@ namespace PgBulk;
 
 public record ManualTableColumnMapping : ITableColumnInformation
 {
+    private readonly PropertyInfo? _property;
+
+    private readonly IPropertyReadAccess? _propertyReadAccess;
+
+    private readonly Type? _truePropertyType;
+
     public ManualTableColumnMapping(string name, PropertyInfo? property, bool valueGeneratedOnAdd, int index, bool primaryKey = false)
     {
         Name = name;
-        _property = property;
         ValueGeneratedOnAdd = valueGeneratedOnAdd;
         Index = index;
         PrimaryKey = primaryKey;
+        _property = property;
         _propertyReadAccess = property == null ? null : PropertyAccessFactory.CreateRead(property.DeclaringType!, name);
         _truePropertyType = property == null ? null : Nullable.GetUnderlyingType(property.PropertyType) ?? property?.PropertyType;
     }
 
-    private readonly PropertyInfo? _property;
-    
-    private readonly Type? _truePropertyType;
-    
     public int Index { get; }
-    
+
     public string Name { get; }
 
     public bool PrimaryKey { get; internal set; }
 
     public bool ValueGeneratedOnAdd { get; }
-    
-    private readonly IPropertyReadAccess? _propertyReadAccess;
 
     public object? GetValue(object entity)
     {
@@ -37,7 +37,7 @@ public record ManualTableColumnMapping : ITableColumnInformation
             throw new InvalidOperationException("No property is set for this column");
 
         var value = _propertyReadAccess!.GetValue(entity);
-        
+
         return _truePropertyType!.IsEnum && value != null
             ? Convert.ToInt32(value)
             : value;

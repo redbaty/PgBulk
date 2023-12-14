@@ -1,81 +1,77 @@
 ﻿using System.Reflection;
 
-namespace PgBulk.Abstractions.PropertyAccess
+namespace PgBulk.Abstractions.PropertyAccess;
+
+public class DelegateValuePropertyAccess<TTarget, TProperty> : IValuePropertyAccess where TTarget : struct
 {
-    public class DelegateValuePropertyAccess<TTarget, TProperty> : IValuePropertyAccess where TTarget : struct
+    private readonly PropertyValueGetter _getter;
+
+    public DelegateValuePropertyAccess(PropertyInfo propertyInfo)
     {
-        private readonly PropertyValueGetter _getter;
+        _getter = CreateGetter(propertyInfo);
+    }
 
-        private delegate TProperty? PropertyValueGetter(ref TTarget target);
-        private delegate TProperty StaticPropertyValueGetter();
+    public object? GetValue(object target)
+    {
+        return GetValue((TTarget)target);
+    }
 
-        public DelegateValuePropertyAccess(PropertyInfo propertyInfo)
+    private static PropertyValueGetter CreateGetter(PropertyInfo propertyInfo)
+    {
+        var name = propertyInfo.Name;
+
+        if (propertyInfo.CanRead && propertyInfo.GetIndexParameters().Length == 0)
         {
-            _getter = CreateGetter(propertyInfo);
+            var getMethod = propertyInfo.GetGetMethod();
+            if (getMethod!.IsStatic)
+            {
+                var staticGetter = (StaticPropertyValueGetter)Delegate.CreateDelegate(typeof(StaticPropertyValueGetter), getMethod);
+                return new StaticGetWrapper(staticGetter).Get;
+            }
+
+            return (PropertyValueGetter)Delegate.CreateDelegate(typeof(PropertyValueGetter), getMethod);
         }
 
-        private static PropertyValueGetter CreateGetter(PropertyInfo propertyInfo)
-        {
-            var name = propertyInfo.Name;
+        return new StaticGetError("No getter implemented for property " + name).Get;
+    }
 
-            if (propertyInfo.CanRead && propertyInfo.GetIndexParameters().Length == 0)
-            {
-                var getMethod = propertyInfo.GetGetMethod();
-                if (getMethod!.IsStatic)
-                {
-                    var staticGetter = (StaticPropertyValueGetter)Delegate.CreateDelegate(typeof(StaticPropertyValueGetter), getMethod);
-                    return new StaticGetWrapper(staticGetter).Get;
-                }
-                else
-                {
-                    return (PropertyValueGetter)Delegate.CreateDelegate(typeof(PropertyValueGetter), getMethod);
-                }
-            }
-            else
-            {
-                return new StaticGetError("No getter implemented for property " + name).Get;
-            }
+
+    public TProperty? GetValue(TTarget target)
+    {
+        return _getter.Invoke(ref target);
+    }
+
+    private delegate TProperty? PropertyValueGetter(ref TTarget target);
+
+    private delegate TProperty StaticPropertyValueGetter();
+
+    private class StaticGetWrapper
+    {
+        private readonly StaticPropertyValueGetter _getter;
+
+        public StaticGetWrapper(StaticPropertyValueGetter getter)
+        {
+            _getter = getter;
         }
 
-        private class StaticGetWrapper
+        public TProperty Get(ref TTarget target)
         {
-            private readonly StaticPropertyValueGetter _getter;
+            return _getter.Invoke();
+        }
+    }
 
-            public StaticGetWrapper(StaticPropertyValueGetter getter)
-            {
-                _getter = getter;
-            }
+    private class StaticGetError
+    {
+        private readonly string _error;
 
-            public TProperty Get(ref TTarget target)
-            {
-                return _getter.Invoke();
-            }
+        public StaticGetError(string error)
+        {
+            _error = error;
         }
 
-        private class StaticGetError
+        public TProperty Get(ref TTarget target)
         {
-            private readonly string _error;
-
-            public StaticGetError(string error)
-            {
-                _error = error;
-            }
-
-            public TProperty Get(ref TTarget target)
-            {
-                throw new NotImplementedException(_error);
-            }
-        }
-
-
-        public TProperty? GetValue(TTarget target)
-        {
-            return _getter.Invoke(ref target);
-        }
-
-        public object? GetValue(object target)
-        {
-            return GetValue((TTarget)target);
+            throw new NotImplementedException(_error);
         }
     }
 }

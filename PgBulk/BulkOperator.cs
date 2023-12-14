@@ -163,12 +163,8 @@ public class BulkOperator
         npgsqlCommand.CommandText = script;
 
         if (parameters != null)
-        {
             foreach (var parameter in parameters)
-            {
                 npgsqlCommand.Parameters.Add(parameter);
-            }
-        }
 
         LogBeforeCommand(npgsqlCommand);
         var stopWatch = Stopwatch.StartNew();
@@ -238,7 +234,7 @@ public class BulkOperator
     }
 
     /// <summary>
-    /// Creates a binary importer to a specific type/table.
+    ///     Creates a binary importer to a specific type/table.
     /// </summary>
     /// <param name="connection"></param>
     /// <param name="columns"></param>
@@ -259,10 +255,7 @@ public class BulkOperator
 
         var commandBuilder = new StringBuilder("COPY ");
 
-        if (!string.IsNullOrEmpty(targetSchema))
-        {
-            commandBuilder.Append($"\"{targetSchema}\".");
-        }
+        if (!string.IsNullOrEmpty(targetSchema)) commandBuilder.Append($"\"{targetSchema}\".");
 
         commandBuilder.Append($"\"{targetTableName}\" ({columnsString}) FROM STDIN (FORMAT BINARY)");
 
@@ -278,13 +271,12 @@ public class BulkOperator
     private async Task<ulong> InsertToTableAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, ITableInformation tableInformation, string tableName, bool onConflictIgnore)
     {
         if (!onConflictIgnore) return await InsertToTableAsync(connection, entities, tableInformation, tableName);
-        
+
         var temporaryName = GetTemporaryTableName(tableInformation);
         await CreateTemporaryTable(connection, tableInformation, temporaryName);
         await InsertToTableAsync(connection, entities, tableInformation, temporaryName);
         var count = await ExecuteCommand(connection, $"insert into \"{tableInformation.Schema}\".\"{tableInformation.Name}\" (select * from \"{temporaryName}\") ON CONFLICT DO NOTHING");
         return (ulong)count;
-
     }
 
     private async Task<ulong> InsertToTableAsync<T>(NpgsqlConnection connection, IEnumerable<T> entities, ITableInformation tableInformation, string tableName)

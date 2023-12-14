@@ -12,7 +12,7 @@ public class ManualTableColumnInformationBuilder<T>
     }
 
     private string TableName { get; }
-    
+
     private string Schema { get; }
 
     private HashSet<ManualTableColumnMapping> ColumnMappings { get; } = new();

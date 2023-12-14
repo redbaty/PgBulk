@@ -13,8 +13,7 @@ public class EFCoreTests
         .RuleFor(i => i.Value1, f => f.Address.City())
         .RuleFor(i => i.Value2, f => f.Company.CompanyName())
         .RuleFor(i => i.Value3, f => f.PickRandom(null, f.Name.Suffix()))
-        .RuleFor(i => i.Value4, f => f.PickRandom<TestEnum?>(null, TestEnum.Value1, TestEnum.Value2, TestEnum.Value3))
-    ;
+        .RuleFor(i => i.Value4, f => f.PickRandom<TestEnum?>(null, TestEnum.Value1, TestEnum.Value2, TestEnum.Value3));
 
     private static MyContext CreateContext()
     {
@@ -31,7 +30,7 @@ public class EFCoreTests
     {
         await using var myContext = CreateContext();
         var entities = Faker.Generate(value);
-        
+
         try
         {
             var st = Stopwatch.StartNew();
@@ -48,7 +47,7 @@ public class EFCoreTests
             await myContext.Database.EnsureDeletedAsync();
         }
     }
-    
+
     [TestMethod]
     [DataRow(100)]
     [DataRow(1000)]
@@ -60,17 +59,17 @@ public class EFCoreTests
 
         var currentCount = await myContext.TestRows.CountAsync();
         Assert.AreEqual(value, currentCount);
-        
+
         var newRows = Faker
             .RuleFor(x => x.Id, f => f.IndexFaker + testRows.Count - 5)
             .Generate(10)
             .ToArray();
-        
+
         await myContext.BulkInsertAsync(newRows, onConflictIgnore: true);
         currentCount = await myContext.TestRows.CountAsync();
 
         Assert.AreEqual(value + 5, currentCount);
-        
+
         await myContext.Database.EnsureDeletedAsync();
     }
 
@@ -80,7 +79,7 @@ public class EFCoreTests
     public async Task Upsert(int value)
     {
         await using var myContext = CreateContext();
-        
+
         try
         {
             var testRows = Faker.Generate(value).OrderBy(i => i.Id).ToArray();
@@ -112,7 +111,7 @@ public class EFCoreTests
             await myContext.Database.EnsureDeletedAsync();
         }
     }
-    
+
     [TestMethod]
     [DataRow(100)]
     [DataRow(1000)]
@@ -123,7 +122,7 @@ public class EFCoreTests
         {
             var customKeyProvider = new EntityManualTableKeyProvider<TestRow>();
             await customKeyProvider.AddKeyColumn(i => i.Value1, myContext);
-        
+
             var testRows = Faker.Generate(value).OrderBy(i => i.Value1).ToArray();
             await myContext.BulkMergeAsync(testRows, tableKeyProvider: customKeyProvider);
 
@@ -140,14 +139,14 @@ public class EFCoreTests
                 })
                 .RuleFor(x => x.Id, f => f.IndexFaker + testRows.Length)
                 .Generate(10).OrderBy(i => i.Value1).ToArray();
-            
+
             await myContext.BulkMergeAsync(newRows, tableKeyProvider: customKeyProvider);
             currentCount = await myContext.TestRows.CountAsync();
             Assert.AreEqual(value, currentCount);
         }
         finally
         {
-            await myContext.Database.EnsureDeletedAsync();   
+            await myContext.Database.EnsureDeletedAsync();
         }
     }
 
@@ -157,7 +156,7 @@ public class EFCoreTests
     public async Task Sync(int value)
     {
         await using var myContext = CreateContext();
-        
+
         try
         {
             var testRows = Faker.Generate(value).OrderBy(i => i.Id).ToArray();

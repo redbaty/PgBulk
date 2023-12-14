@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Bogus;
 using Microsoft.EntityFrameworkCore;
 using NanoidDotNet;
@@ -29,10 +30,15 @@ public class EFCoreTests
     public async Task Insert(int value)
     {
         await using var myContext = CreateContext();
+        var entities = Faker.Generate(value);
         
         try
         {
-            await myContext.BulkInsertAsync(Faker.Generate(value));
+            var st = Stopwatch.StartNew();
+            await myContext.BulkInsertAsync(entities);
+            st.Stop();
+
+            Console.WriteLine($"Insert {value} rows in \"{st.Elapsed}\"");
 
             var currentCount = await myContext.TestRows.CountAsync();
             Assert.AreEqual(value, currentCount);

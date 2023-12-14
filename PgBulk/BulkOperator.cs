@@ -134,6 +134,9 @@ public class BulkOperator
 
                 foreach (var entity in entities)
                 {
+                    if(entity == null)
+                        throw new ArgumentNullException(nameof(entities), "No entity can be null");
+                    
                     var npgsqlParameters = tableKey.Columns
                         .Select(i => new NpgsqlParameter($"p{i.Index}", i.GetValue(entity)))
                         .ToArray();

@@ -8,7 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: mcr.microsoft.com/dotnet/sdk:6.0
+    container: mcr.microsoft.com/dotnet/sdk:8.0
 
     services:
       postgres:
@@ -39,7 +39,7 @@ jobs:
         T_POSTGRES_HOST: postgres
         T_POSTGRES_USER: postgres
         T_POSTGRES_PASS: postgres
-      run: dotnet test -f net6.0
+      run: dotnet test -f net8.0
 
     - name: Publish NuGet packages
       run: |

@@ -1,0 +1,20 @@
+﻿{{~ for using in usings ~}}
+{{using}}
+{{~ end ~}}
+
+namespace {{csnamespace}} {
+    public partial class {{class_name}}
+    {
+        public partial IEnumerable<PropertyInfo> GetPropertyOrder() {
+        {{~ for property in properties ~}}
+            yield return typeof({{entity_type_name}}).GetProperty(nameof({{entity_type_name}}.{{property}}));
+        {{~ end ~}}
+        }
+        
+        public partial IEnumerable<object?> GetValues({{entity_type_name}} entity) {
+        {{~ for property in properties ~}}
+            yield return entity.{{property}};
+        {{~ end ~}}            
+        }
+    }
+}

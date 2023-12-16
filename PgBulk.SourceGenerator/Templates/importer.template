@@ -1,0 +1,15 @@
+﻿{{~ for using in usings ~}}
+{{using}}
+{{~ end ~}}
+
+namespace {{csnamespace}} {
+    public partial class {{class_name}}
+    {
+        public partial async ValueTask WriteAsync({{entity_type_name}} entity, NpgsqlBinaryImporter writer) {
+            await writer.StartRowAsync();
+        {{~ for property in properties ~}}
+            await writer.WriteAsync(entity.{{property}});
+        {{~ end ~}}            
+        }
+    }
+}
